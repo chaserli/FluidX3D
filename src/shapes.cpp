@@ -1,7 +1,7 @@
 #include "shapes.hpp"
 #include "lbm.hpp"
 
-const float d = 0.8660254f; // sqrt(3)/2
+constexpr float d = 0.8660254f; // sqrt(3)/2
 
 bool sphere(const uint x, const uint y, const uint z, const float3& p, const float r) {
 	const float3 t = float3(x, y, z)-p;

@@ -104,58 +104,58 @@ inline void sleep(const double t) {
 	if(t>0.0) std::this_thread::sleep_for(std::chrono::milliseconds((int)(1E3*t+0.5)));
 }
 
-inline float as_float(const uint x) {
-	return *(float*)&x;
+constexpr float as_float(const uint x) {
+	return std::bit_cast<float>(x);
 }
-inline uint as_uint(const float x) {
-	return *(uint*)&x;
+constexpr uint as_uint(const float x) {
+	return std::bit_cast<uint>(x);
 }
-inline double as_double(const ulong x) {
-	return *(double*)&x;
+constexpr double as_double(const ulong x) {
+	return std::bit_cast<double>(x);
 }
-inline ulong as_ulong(const double x) {
-	return *(ulong*)&x;
+constexpr ulong as_ulong(const double x) {
+	return std::bit_cast<ulong>(x);
 }
 
-inline float half_to_float(const ushort x) { // IEEE-754 16-bit floating-point format (without infinity): 1-5-10, exp-15, +-131008.0, +-6.1035156E-5, +-5.9604645E-8, 3.311 digits
+constexpr float half_to_float(const ushort x) { // IEEE-754 16-bit floating-point format (without infinity): 1-5-10, exp-15, +-131008.0, +-6.1035156E-5, +-5.9604645E-8, 3.311 digits
 	const uint e = (x&0x7C00)>>10; // exponent
 	const uint m = (x&0x03FF)<<13; // mantissa
 	const uint v = as_uint((float)m)>>23; // evil log2 bit hack to count leading zeros in denormalized format
 	return as_float((x&0x8000)<<16 | (e!=0)*((e+112)<<23|m) | ((e==0)&(m!=0))*((v-37)<<23|((m<<(150-v))&0x007FE000))); // sign : normalized : denormalized
 }
-inline ushort float_to_half(const float x) { // IEEE-754 16-bit floating-point format (without infinity): 1-5-10, exp-15, +-131008.0, +-6.1035156E-5, +-5.9604645E-8, 3.311 digits
+constexpr ushort float_to_half(const float x) { // IEEE-754 16-bit floating-point format (without infinity): 1-5-10, exp-15, +-131008.0, +-6.1035156E-5, +-5.9604645E-8, 3.311 digits
 	const uint b = as_uint(x)+0x00001000; // round-to-nearest-even: add last bit after truncated mantissa
 	const uint e = (b&0x7F800000)>>23; // exponent
 	const uint m = b&0x007FFFFF; // mantissa; in line below: 0x007FF000 = 0x00800000-0x00001000 = decimal indicator flag - initial rounding
 	return (b&0x80000000)>>16 | (e>112)*((((e-112)<<10)&0x7C00)|m>>13) | ((e<113)&(e>101))*((((0x007FF000+m)>>(125-e))+1)>>1) | (e>143)*0x7FFF; // sign : normalized : denormalized : saturate
 }
-inline float half_to_float_custom(const ushort x) { // custom 16-bit floating-point format, 1-4-11, exp-15, +-1.99951168, +-6.10351562E-5, +-2.98023224E-8, 3.612 digits
+constexpr float half_to_float_custom(const ushort x) { // custom 16-bit floating-point format, 1-4-11, exp-15, +-1.99951168, +-6.10351562E-5, +-2.98023224E-8, 3.612 digits
 	const uint e = (x&0x7800)>>11; // exponent
 	const uint m = (x&0x07FF)<<12; // mantissa
 	const uint v = as_uint((float)m)>>23; // evil log2 bit hack to count leading zeros in denormalized format
 	return as_float((x&0x8000)<<16 | (e!=0)*((e+112)<<23|m) | ((e==0)&(m!=0))*((v-37)<<23|((m<<(150-v))&0x007FF000))); // sign : normalized : denormalized
 }
-inline ushort float_to_half_custom(const float x) { // custom 16-bit floating-point format, 1-4-11, exp-15, +-1.99951168, +-6.10351562E-5, +-2.98023224E-8, 3.612 digits
+constexpr ushort float_to_half_custom(const float x) { // custom 16-bit floating-point format, 1-4-11, exp-15, +-1.99951168, +-6.10351562E-5, +-2.98023224E-8, 3.612 digits
 	const uint b = as_uint(x)+0x00000800; // round-to-nearest-even: add last bit after truncated mantissa
 	const uint e = (b&0x7F800000)>>23; // exponent
 	const uint m = b&0x007FFFFF; // mantissa; in line below: 0x007FF800 = 0x00800000-0x00000800 = decimal indicator flag - initial rounding
 	return (b&0x80000000)>>16 | (e>112)*((((e-112)<<11)&0x7800)|m>>12) | ((e<113)&(e>100))*((((0x007FF800+m)>>(124-e))+1)>>1) | (e>127)*0x7FFF; // sign : normalized : denormalized : saturate
 }
 
-inline float sq(const float x) {
+constexpr float sq(const float x) {
 	return x*x;
 }
-inline float cb(const float x) {
+constexpr float cb(const float x) {
 	return x*x*x;
 }
-inline float pow(const float x, const uint n) {
+constexpr float pow(const float x, const uint n) {
 	float r = 1.0f;
 	for(uint i=0u; i<n; i++) {
 		r *= x;
 	}
 	return r;
 }
-inline float sign(const float x) {
+constexpr float sign(const float x) {
 	return x>=0.0f ? 1.0f : -1.0f;
 }
 inline float clamp(const float x, const float a, const float b) {
@@ -170,10 +170,10 @@ inline float ln(const float x) {
 inline int log2_fast(const float x) {
 	return (as_uint(x)>>23)-127;
 }
-inline float degrees(const float radians) {
+constexpr float degrees(const float radians) {
 	return (180.0f/pif)*radians;
 }
-inline float radians(const float degrees) {
+constexpr float radians(const float degrees) {
 	return (pif/180.0f)*degrees;
 }
 inline float find_zero(float f(float), float min=-1.0f, float max=1.0f, float offset=0.0f) { // find zero of function f(x) in [min, max] by nested intervals
@@ -263,20 +263,20 @@ inline void lu_solve(float* M, float* x, float* b, const int N) { // solves syst
 	}
 }
 
-inline double sq(const double x) {
+constexpr double sq(const double x) {
 	return x*x;
 }
-inline double cb(const double x) {
+constexpr double cb(const double x) {
 	return x*x*x;
 }
-inline double pow(const double x, const uint n) {
+constexpr double pow(const double x, const uint n) {
 	double r = 1.0;
 	for(uint i=0u; i<n; i++) {
 		r *= x;
 	}
 	return r;
 }
-inline double sign(const double x) {
+constexpr double sign(const double x) {
 	return x>=0.0 ? 1.0 : -1.0;
 }
 inline double clamp(const double x, const double a, const double b) {
@@ -288,13 +288,13 @@ inline double rsqrt(const double x) {
 inline double ln(const double x) {
 	return log(x); // natural logarithm
 }
-inline int log2_fast(const double x) {
+constexpr int log2_fast(const double x) {
 	return (as_ulong(x)>>52)-1023;
 }
-inline double degrees(const double radians) {
+constexpr double degrees(const double radians) {
 	return (180.0/pi)*radians;
 }
-inline double radians(const double degrees) {
+constexpr double radians(const double degrees) {
 	return (pi/180.0)*degrees;
 }
 inline double find_zero(double f(double), double min=-1.0, double max=1.0, double offset=0.0) { // find zero of function f(x) in [min, max] by nested intervals
