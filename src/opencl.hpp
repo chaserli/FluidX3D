@@ -25,6 +25,7 @@ struct Device_Info {
 	uint clock_frequency=0u; // in MHz
 	bool is_cpu=false, is_gpu=false;
 	bool intel_gpu_above_4gb_patch = false; // memory allocations greater than 4GB need to be specifically enabled on Intel GPUs
+	bool legacy_gpu_fma_patch = false; // some old GPUs have terrible fma performance, so replace with a*b+c
 	uint is_fp64_capable=0u, is_fp32_capable=0u, is_fp16_capable=0u, is_int64_capable=0u, is_int32_capable=0u, is_int16_capable=0u, is_int8_capable=0u;
 	uint cores=0u; // for CPUs, compute_units is the number of threads (twice the number of cores with hyperthreading)
 	float tflops=0.0f; // estimated device FP32 floating point performance in TeraFLOPs/s
@@ -66,26 +67,39 @@ struct Device_Info {
 		cores = to_uint((float)compute_units*(nvidia+amd+intel+apple+arm)); // for CPUs, compute_units is the number of threads (twice the number of cores with hyperthreading)
 		tflops = 1E-6f*(float)cores*(float)ipc*(float)clock_frequency; // estimated device floating point performance in TeraFLOPs/s
 		if(intel==8.0f) { // fix wrong global memory reporting for Intel Arc GPUs
-			if((contains(name, "A770")&&memory>=12602u&&memory<13416u)||(contains_any(name, {"A770", "A750", "A580"})&&memory>=6286u&&memory<6693u)||(contains(name, "A380")&&memory>=4705u&&memory<5010u)) { // 77.5%-82.5% reporting -> /0.8
+			if((contains_any(name, {"A770", "0x56a0"})&&memory>=11739u&&memory<14168u)||(contains_any(name, {"A770", "A750", "A580", "0x56a0", "0x56a1", "0x56a2"})&&memory>=5869u&&memory<7084u)||(contains_any(name, {"A380", "0x56a5"})&&memory>=4402u&&memory<5313u)) { // 72.5%-87.5% reporting -> /0.8
 				memory = (uint)((cl_device.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>()*5ull/4ull)/1048576ull); // fix wrong (80% on Windows) memory reporting on Intel Arc
 			}
-			if((contains_any(name, {"A770", "0x56a0"})&&memory>=15041u&&memory<15855u)||(contains_any(name, {"A770", "A750", "A580", "0x56a0", "0x56a1", "0x56a2"})&&memory>=7503u&&memory<7910u)||(contains_any(name, {"A380", "0x56a5"})&&memory>=5616u&&memory<5921u)) { // 92.5%-97.5% reporting -> /0.95
+			if((contains_any(name, {"A770", "0x56a0"})&&memory>=14168u&&memory<15625u)||(contains_any(name, {"A770", "A750", "A580", "0x56a0", "0x56a1", "0x56a2"})&&memory>=7084u&&memory<7812u)||(contains_any(name, {"A380", "0x56a5"})&&memory>=5313u&&memory<5859u)) { // 87.5%-96.5% reporting -> /0.95
 				memory = (uint)((cl_device.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>()*20ull/19ull)/1048576ull); // fix wrong (95% on Linux) memory reporting on Intel Arc
 			}
+			if((contains_any(name, {"A770", "0x56a0"})&&memory>=15625u&&memory<16030u)||(contains_any(name, {"A770", "A750", "A580", "0x56a0", "0x56a1", "0x56a2"})&&memory>=7812u&&memory<8015u)||(contains_any(name, {"A380", "0x56a5"})&&memory>=5859u&&memory<6011u)) { // 96.5%-99.0% reporting -> /0.98
+				memory = (uint)((cl_device.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>()*50ull/49ull)/1048576ull); // fix wrong (98% on Windows) memory reporting on Intel Arc
+			}
 		}
-		intel_gpu_above_4gb_patch = (intel==8.0f)&&(memory>4096); // enable memory allocations greater than 4GB for Intel GPUs with >4GB VRAM
+		intel_gpu_above_4gb_patch = intel_gpu_above_4gb_patch||((intel==8.0f)&&(memory>4096)); // enable memory allocations greater than 4GB for Intel GPUs with >4GB VRAM
+		legacy_gpu_fma_patch = legacy_gpu_fma_patch||contains(to_lower(vendor), "arm"); // enable for all ARM GPUs
 	}
 	inline Device_Info() {}; // default constructor
 };
 
 string get_opencl_c_code(); // implemented in kernel.hpp
 inline void print_device_info(const Device_Info& d) { // print OpenCL device info
+#if defined(_WIN32)
+	const string os = "Windows";
+#elif defined(__linux__)
+	const string os = "Linux";
+#elif defined(__APPLE__)
+	const string os = "macOS";
+#else // unknown operating system
+	const string os = "unknown operating system";
+#endif // operating system
 	println("\r|----------------.------------------------------------------------------------|");
-	println("| Device ID      | "+alignl(58, to_string(d.id)        )+" |");
-	println("| Device Name    | "+alignl(58, d.name                 )+" |");
-	println("| Device Vendor  | "+alignl(58, d.vendor               )+" |");
-	println("| Device Driver  | "+alignl(58, d.driver_version       )+" |");
-	println("| OpenCL Version | "+alignl(58, d.opencl_c_version     )+" |");
+	println("| Device ID      | "+alignl(58, to_string(d.id)             )+" |");
+	println("| Device Name    | "+alignl(58, d.name                      )+" |");
+	println("| Device Vendor  | "+alignl(58, d.vendor                    )+" |");
+	println("| Device Driver  | "+alignl(58, d.driver_version+" ("+os+")")+" |");
+	println("| OpenCL Version | "+alignl(58, d.opencl_c_version          )+" |");
 	println("| Compute Units  | "+alignl(58, to_string(d.compute_units)+" at "+to_string(d.clock_frequency)+" MHz ("+to_string(d.cores)+" cores, "+to_string(d.tflops, 3)+" TFLOPs/s)")+" |");
 	println("| Memory, Cache  | "+alignl(58, to_string(d.memory)+" MB, "+to_string(d.global_cache)+" KB global / "+to_string(d.local_cache)+" KB local")+" |");
 	println("| Buffer Limits  | "+alignl(58, to_string(d.max_global_buffer)+" MB global, "+to_string(d.max_constant_buffer)+" KB constant")+" |");
@@ -162,6 +176,7 @@ private:
 		"\n	#ifdef cl_khr_int64_base_atomics"
 		"\n	#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable" // make sure cl_khr_int64_base_atomics extension is enabled
 		"\n	#endif"
+		+(info.legacy_gpu_fma_patch ? "\n #define fma(a, b, c) ((a)*(b)+(c))" : "") // some old GPUs have terrible fma performance, so replace with a*b+c
 	;}
 public:
 	Device_Info info;
@@ -173,7 +188,7 @@ public:
 		const string kernel_code = enable_device_capabilities()+"\n"+opencl_c_code;
 		cl_source.push_back({ kernel_code.c_str(), kernel_code.length() });
 		this->cl_program = cl::Program(info.cl_context, cl_source);
-		const string build_options = string("-cl-fast-relaxed-math")+(info.intel_gpu_above_4gb_patch ? " -cl-intel-greater-than-4GB-buffer-required" : "");
+		const string build_options = string("-cl-finite-math-only -cl-no-signed-zeros -cl-mad-enable")+(info.intel_gpu_above_4gb_patch ? " -cl-intel-greater-than-4GB-buffer-required" : "");
 #ifndef LOG
 		int error = cl_program.build({ info.cl_device }, (build_options+" -w").c_str()); // compile OpenCL C code, disable warnings
 		if(error) print_warning(cl_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(info.cl_device)); // print build log
@@ -240,11 +255,10 @@ public:
 		allocate_device_buffer(device, allocate_device);
 		if(allocate_host) {
 			host_buffer = new T[N*(ulong)d];
-			for(ulong i=0ull; i<N*(ulong)d; i++) host_buffer[i] = value;
 			initialize_auxiliary_pointers();
 			host_buffer_exists = true;
 		}
-		write_to_device();
+		reset(value);
 	}
 	inline Memory(Device& device, const ulong N, const uint dimensions, T* const host_buffer, const bool allocate_device=true) {
 		if(!device.is_initialized()) print_error("No Device selected. Call Device constructor.");
@@ -325,8 +339,10 @@ public:
 		delete_host_buffer();
 	}
 	inline void reset(const T value=(T)0) {
-		if(host_buffer_exists) for(ulong i=0ull; i<N*(ulong)d; i++) host_buffer[i] = value;
-		write_to_device();
+		//if(device_buffer_exists) cl_queue.enqueueFillBuffer(device_buffer, value, 0ull, capacity()); // faster than "write_to_device();"
+		if(host_buffer_exists) std::fill(host_buffer, host_buffer+range(), value); // faster than "for(ulong i=0ull; i<range(); i++) host_buffer[i] = value;"
+		write_to_device(); // enqueueFillBuffer is broken for large buffers on Nvidia GPUs!
+		//if(device_buffer_exists) cl_queue.finish();
 	}
 	inline const ulong length() const { return N; }
 	inline const uint dimensions() const { return d; }
@@ -341,10 +357,10 @@ public:
 	inline const T operator()(const ulong i) const { return host_buffer[i]; }
 	inline const T operator()(const ulong i, const uint dimension) const { return host_buffer[i+(ulong)dimension*N]; } // array of structures
 	inline void read_from_device(const bool blocking=true, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
-		if(host_buffer_exists&&device_buffer_exists) cl_queue.enqueueReadBuffer(device_buffer, blocking, 0u, capacity(), (void*)host_buffer, event_waitlist, event_returned);
+		if(host_buffer_exists&&device_buffer_exists) cl_queue.enqueueReadBuffer(device_buffer, blocking, 0ull, capacity(), (void*)host_buffer, event_waitlist, event_returned);
 	}
 	inline void write_to_device(const bool blocking=true, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
-		if(host_buffer_exists&&device_buffer_exists) cl_queue.enqueueWriteBuffer(device_buffer, blocking, 0u, capacity(), (void*)host_buffer, event_waitlist, event_returned);
+		if(host_buffer_exists&&device_buffer_exists) cl_queue.enqueueWriteBuffer(device_buffer, blocking, 0ull, capacity(), (void*)host_buffer, event_waitlist, event_returned);
 	}
 	inline void read_from_device(const ulong offset, const ulong length, const bool blocking=true, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
 		if(host_buffer_exists&&device_buffer_exists) {
@@ -446,14 +462,21 @@ class Kernel {
 private:
 	ulong N = 0ull; // kernel range
 	uint number_of_parameters = 0u;
+	string name = "";
 	cl::Kernel cl_kernel;
 	cl::NDRange cl_range_global, cl_range_local;
 	cl::CommandQueue cl_queue;
+	inline void check_for_errors(const int error) {
+		if(error==-48) print_error("There is no OpenCL kernel with name \""+name+"(...)\" in the OpenCL C code! Check spelling!");
+		if(error<-48&&error>-53) print_error("Parameters for OpenCL kernel \""+name+"(...)\" don't match between C++ and OpenCL C!");
+		if(error==-54) print_error("Workgrop size "+to_string(WORKGROUP_SIZE)+" for OpenCL kernel \""+name+"(...)\" is invalid!");
+		if(error!=0) print_error("OpenCL kernel \""+name+"(...)\" failed with error code "+to_string(error)+"!");
+	}
 	template<typename T> inline void link_parameter(const uint position, const Memory<T>& memory) {
-		cl_kernel.setArg(position, memory.get_cl_buffer());
+		check_for_errors(cl_kernel.setArg(position, memory.get_cl_buffer()));
 	}
 	template<typename T> inline void link_parameter(const uint position, const T& constant) {
-		cl_kernel.setArg(position, sizeof(T), (void*)&constant);
+		check_for_errors(cl_kernel.setArg(position, sizeof(T), (void*)&constant));
 	}
 	inline void link_parameters(const uint starting_position) {
 		number_of_parameters = max(number_of_parameters, starting_position);
@@ -464,14 +487,15 @@ private:
 	}
 public:
 	template<class... T> inline Kernel(const Device& device, const ulong N, const string& name, const T&... parameters) { // accepts Memory<T> objects and fundamental data type constants
-		if(!device.is_initialized()) print_error("No Device selected. Call Device constructor.");
+		if(!device.is_initialized()) print_error("No OpenCL Device selected. Call Device constructor.");
+		this->name = name;
 		cl_kernel = cl::Kernel(device.get_cl_program(), name.c_str());
 		link_parameters(number_of_parameters, parameters...); // expand variadic template to link kernel parameters
 		set_ranges(N);
 		cl_queue = device.get_cl_queue();
 	}
 	template<class... T> inline Kernel(const Device& device, const ulong N, const uint workgroup_size, const string& name, const T&... parameters) { // accepts Memory<T> objects and fundamental data type constants
-		if(!device.is_initialized()) print_error("No Device selected. Call Device constructor.");
+		if(!device.is_initialized()) print_error("No OpenCL Device selected. Call Device constructor.");
 		cl_kernel = cl::Kernel(device.get_cl_program(), name.c_str());
 		link_parameters(number_of_parameters, parameters...); // expand variadic template to link kernel parameters
 		set_ranges(N, (ulong)workgroup_size);
@@ -496,7 +520,7 @@ public:
 	}
 	inline Kernel& enqueue_run(const uint t=1u, const vector<Event>* event_waitlist=nullptr, Event* event_returned=nullptr) {
 		for(uint i=0u; i<t; i++) {
-			cl_queue.enqueueNDRangeKernel(cl_kernel, cl::NullRange, cl_range_global, cl_range_local, event_waitlist, event_returned);
+			check_for_errors(cl_queue.enqueueNDRangeKernel(cl_kernel, cl::NullRange, cl_range_global, cl_range_local, event_waitlist, event_returned));
 		}
 		return *this;
 	}

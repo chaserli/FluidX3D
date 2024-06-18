@@ -18,7 +18,7 @@ void Info::initialize(LBM* lbm) {
 	collision += " (FP32/FP32)";
 #endif // FP32
 	cpu_mem_required = (uint)(lbm->get_N()*(ulong)bytes_per_cell_host()/1048576ull); // reset to get valid values for consecutive simulations
-	gpu_mem_required = lbm->lbm[0]->get_device().info.memory_used;
+	gpu_mem_required = lbm->lbm_domain[0]->get_device().info.memory_used;
 	print_info("Allocating memory. This may take a few seconds.");
 }
 void Info::append(const ulong steps, const ulong t) {
@@ -40,23 +40,23 @@ double Info::time() const { // returns either elapsed time or remaining time
 void Info::print_logo() const {
 	const int a=color_light_blue, b=color_orange, c=color_pink;
 	print(".-----------------------------------------------------------------------------.\n");
-	print("|                       "); print("______________   ", a);               print("______________", b);      print("                       |\n");
-	print("|                       "); print("\\   ________  | ", a);               print("|  ________   /", b);     print("                       |\n");
-	print("|                        "); print("\\  \\       | | ", a);              print("| |       /  /", b);     print("                        |\n");
-	print("|                         "); print("\\  \\      | | ", a);              print("| |      /  /", b);     print("                         |\n");
-	print("|                          "); print("\\  \\     | | ", a);              print("| |     /  /", b);     print("                          |\n");
-	print("|                           "); print("\\  \\_.-\"  | ", a);             print("|  \"-._/  /", b);    print("                           |\n");
-	print("|                            "); print("\\    _.-\" ", a);  print("_ ", c); print("\"-._    /", b);  print("                            |\n");
+	print("|                      "); print(  " ______________  ", a);                  print(" ______________ ", b); print("                      |\n");
+	print("|                       "); print( "\\   ________  | ", a);                  print("|  ________   /", b); print("                       |\n");
+	print("|                        "); print("\\  \\       | | ", a);                  print("| |       /  /", b); print("                        |\n");
+	print("|                         "); print("\\  \\      | | ", a);                  print("| |      /  /", b); print("                         |\n");
+	print("|                          "); print("\\  \\     | | ", a);                  print("| |     /  /", b); print("                          |\n");
+	print("|                           "); print("\\  \\_.-\"  | ", a);                print("|  \"-._/  /", b); print("                           |\n");
+	print("|                            "); print("\\    _.-\" ", a);  print("_ ", c);  print("\"-._    /", b); print("                            |\n");
 	print("|                             "); print("\\.-\" ", a); print("_.-\" \"-._ ", c); print("\"-./", b); print("                             |\n");
-	print("|                               ");                print(".-\"  .-\"-.  \"-.", c);                print("                               |\n");
-	print("|                               ");                print("\\  v\"     \"v  /", c);                print("                               |\n");
-	print("|                                ");                print("\\  \\     /  /", c);                 print("                                |\n");
-	print("|                                 ");                print("\\  \\   /  /", c);                 print("                                 |\n");
-	print("|                                  ");                print("\\  \\ /  /", c);                 print("                                  |\n");
-	print("|                                   ");                print("\\  '  /", c);                  print("                                   |\n");
-	print("|                                    ");                print("\\   /", c);                  print("                                    |\n");
-	print("|                                     ");                print("\\ /", c);                  print("                FluidX3D Version 2.9 |\n");
-	print("|                                      ");                 print("'", c);                  print("     Copyright (c) Dr. Moritz Lehmann |\n");
+	print("|                              ");                 print(" .-\"  .-\"-.  \"-. ", c);               print("                              |\n");
+	print("|                               ");                 print("\\  v\"     \"v  /", c);               print("                               |\n");
+	print("|                                ");                 print("\\  \\     /  /", c);                print("                                |\n");
+	print("|                                 ");                 print("\\  \\   /  /", c);                print("                                 |\n");
+	print("|                                  ");                 print("\\  \\ /  /", c);                print("                                  |\n");
+	print("|                                   ");                 print("\\  '  /", c);                 print("                                   |\n");
+	print("|                                    ");                 print("\\   /", c);                 print("                                    |\n");
+	print("|                                     ");                 print("\\ /", c);                 print("               FluidX3D Version 2.17 |\n");
+	print("|                                      ");                 print( "'", c);                 print("     Copyright (c) Dr. Moritz Lehmann |\n");
 	print("|-----------------------------------------------------------------------------|\n");
 }
 void Info::print_initialize() {
@@ -95,7 +95,7 @@ void Info::print_update() const {
 		"|"+alignr(8, to_uint((double)lbm->get_N()*1E-6/runtime_lbm_timestep_smooth))+" |"+ // MLUPs
 		alignr(7, to_uint((double)lbm->get_N()*(double)bandwidth_bytes_per_cell_device()*1E-9/runtime_lbm_timestep_smooth))+" GB/s |"+ // memory bandwidth
 		alignr(10, to_uint(1.0/runtime_lbm_timestep_smooth))+" | "+ // steps/s
-		(steps==max_ulong ? alignr(17, lbm->get_t()) : alignr(12, lbm->get_t())+" "+print_percentage((double)(lbm->get_t()-steps_last)/(double)steps))+" | "+ // current step
+		(steps==max_ulong ? alignr(17, lbm->get_t()) : alignr(12, lbm->get_t())+" "+print_percentage((float)(lbm->get_t()-steps_last)/(float)steps))+" | "+ // current step
 		alignr(19, print_time(time()))+" |" // either elapsed time or remaining time
 	);
 #ifdef GRAPHICS

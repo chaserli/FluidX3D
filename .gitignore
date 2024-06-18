@@ -1,5 +1,6 @@
 bin/
 .vscode
 temp/
+stl/
 .vs/
 FluidX3D.vcxproj.user

@@ -15,7 +15,7 @@ string default_filename(const string& path, const string& name, const string& ex
 string default_filename(const string& name, const string& extension, const ulong t); // generate a default filename with timestamp at exe_path/export/
 
 #pragma warning(disable:26812)
-enum enum_transfer_field { fi, rho_u_flags, flags, phi_massex_flags, gi, enum_transfer_field_length };
+enum enum_transfer_field { fi, rho_u_flags, flags, phi_massex_flags, gi, T, enum_transfer_field_length };
 
 class LBM_Domain {
 private:
@@ -27,7 +27,7 @@ private:
 	float nu = 1.0f/6.0f; // kinematic shear viscosity
 	float fx=0.0f, fy=0.0f, fz=0.0f; // global force per volume
 	float sigma=0.0f; // surface tension coefficient
-	float alpha=1.0f, beta=1.0f, T_avg=1.0f; // alpha = thermal diffusion coefficient, beta = thermal expansion coefficient, T_avg = 1 = average temperature
+	float alpha=1.0f, beta=1.0f, T_avg=1.0f; // alpha = thermal diffusion coefficient, beta = (volumetric) thermal expansion coefficient, T_avg = 1 = average temperature
 	uint particles_N = 0u;
 	float particles_rho = 1.0f;
 
@@ -150,6 +150,7 @@ public:
 		Kernel kernel_graphics_flags; // render flag lattice with wireframe
 		Kernel kernel_graphics_flags_mc; // render flag lattice with marching-cubes
 		Kernel kernel_graphics_field; // render a colored velocity vector for each cell
+		Kernel kernel_graphics_field_slice; // render one slice of velocity field according to slics settings
 		Kernel kernel_graphics_streamline; // render streamlines
 		Kernel kernel_graphics_q; // render vorticity (Q-criterion)
 
@@ -185,7 +186,7 @@ public:
 			return *this;
 		}
 		void allocate(Device& device); // allocate memory for bitmap and zbuffer
-		bool enqueue_draw_frame(const int visualization_modes, const int slice_mode=0, const int slice_x=0, const int slice_y=0, const int slice_z=0); // main rendering function, calls rendering kernels, returns true if new frame is rendered, false if old frame is returned when camera has not moved
+		bool enqueue_draw_frame(const int visualization_modes, const int field_mode=0, const int slice_mode=0, const int slice_x=0, const int slice_y=0, const int slice_z=0, const bool visualization_change=true); // main rendering function, calls rendering kernels, returns true if new frame is rendered, false if old frame is returned when camera has not moved
 		int* get_bitmap(); // returns pointer to bitmap
 		int* get_zbuffer(); // returns pointer to zbuffer
 		string device_defines() const; // returns preprocessor constants for embedding in OpenCL C code
@@ -211,42 +212,67 @@ private:
 
 	void communicate_fi();
 	void communicate_rho_u_flags();
-#ifdef SURFACE
 	void communicate_flags();
+#ifdef SURFACE
 	void communicate_phi_massex_flags();
 #endif // SURFACE
 #ifdef TEMPERATURE
 	void communicate_gi();
+	void communicate_T();
 #endif // TEMPERATURE
 
 public:
 	template<typename T> class Memory_Container { // does not hold any data itsef, just links to LBM_Domain data
 	private:
-		LBM* lbm = nullptr;
 		ulong N = 0ull; // buffer length
 		uint d = 1u; // buffer dimensions
-		uint Nx=1u, Ny=1u, Nz=1u; // (local) lattice dimensions
-		uint Dx=1u, Dy=1u, Dz=1u; // lattice domains
+		LBM* lbm = nullptr;
 		Memory<T>** buffers = nullptr; // host buffers
 		string name = "";
+
+		uint Nx=1u, Ny=1u, Nz=1u, Dx=1u, Dy=1u, Dz=1u, D=1u; // auxiliary variables: (local) lattice dimensions, lattice domains, number of domains
+		uint NxDx=1u, NyDy=1u, NzDz=1u, Hx=0u, Hy=0u, Hz=0u; // auxiliary variables: number of domains, shortcuts for N_/D_, halo offsets
+		ulong NxNy=1ull, local_Nx=1ull, local_Ny=1ull, local_Nz=1ull, local_N=1ull; // auxiliary variables: shortcut for Nx*Ny, size of each domain, number of cells in each domain
+		inline void initialize_auxiliary_variables() { // these variables are frequently used in reference() functions, so pre-compute them only once here
+			Nx = lbm->get_Nx(); Ny = lbm->get_Ny(); Nz = lbm->get_Nz();
+			Dx = lbm->get_Dx(); Dy = lbm->get_Dy(); Dz = lbm->get_Dz();
+			D = Dx*Dy*Dz; // number of domains
+			NxNy = (ulong)Nx*(ulong)Ny; // shortcut for Nx*Ny
+			NxDx=Nx/Dx; NyDy=Ny/Dy; NzDz=Nz/Dz; // shortcuts for N_/D_
+			Hx=Dx>1u; Hy=Dy>1u; Hz=Dz>1u; // halo offsets
+			local_Nx=(ulong)(NxDx+2u*Hx); local_Ny=(ulong)(NyDy+2u*Hy); local_Nz=(ulong)(NzDz+2u*Hz); // size of each domain
+			local_N = local_Nx*local_Ny*local_Nz; // number of cells in each domain
+		}
 		inline void initialize_auxiliary_pointers() {
 			/********/ x = Pointer(this, 0x0u);
 			if(d>0x1u) y = Pointer(this, 0x1u);
 			if(d>0x2u) z = Pointer(this, 0x2u);
 		}
-		inline T& reference(const ulong i, const uint dimension) { // stitch together domain buffers and make them appear as one single large buffer
-			const ulong global_i = i%N;
-			const ulong NxNy=(ulong)Nx*(ulong)Ny, t=global_i%NxNy;
-			const uint x=(uint)(t%(ulong)Nx), y=(uint)(t/(ulong)Nx), z=(uint)(global_i/NxNy); // n = x+(y+z*Ny)*Nx
-			const uint NxDx=Nx/Dx, NyDy=Ny/Dy, NzDz=Nz/Dz;
-			const uint px=x%NxDx, py=y%NyDy, pz=z%NzDz, dx=x/NxDx, dy=y/NyDy, dz=z/NzDz, domain=dx+(dy+dz*Dy)*Dx;
-			const uint Hx=Dx>1u, Hy=Dy>1u, Hz=Dz>1u; // halo offsets
-			const ulong local_N = (ulong)(NxDx+2u*Hx)*(ulong)(NyDy+2u*Hy)*(ulong)(NzDz+2u*Hz); // add halo offsets
-			const ulong local_i = (ulong)(px+Hx)+((ulong)(py+Hy)+(ulong)(pz+Hz)*(ulong)(NyDy+2u*Hy))*(ulong)(NxDx+2u*Hx); // add halo offsets
-			const ulong local_dimension = max(i/N, (ulong)dimension);
-			return buffers[domain]->data()[local_i+local_dimension*local_N]; // array of structures
+		inline T& reference(const ulong i) { // stitch together domain buffers and make them appear as one single large buffer
+			if(D==1u) { // take shortcut for single domain
+				return buffers[0]->data()[i]; // array of structures
+			} else { // decompose index for multiple domains
+				const ulong global_i=i%N, t=global_i%NxNy;
+				const uint x=(uint)(t%(ulong)Nx), y=(uint)(t/(ulong)Nx), z=(uint)(global_i/NxNy); // n = x+(y+z*Ny)*Nx
+				const uint px=x%NxDx, py=y%NyDy, pz=z%NzDz, dx=x/NxDx, dy=y/NyDy, dz=z/NzDz, domain=dx+(dy+dz*Dy)*Dx; // 3D position within domain and which domain
+				const ulong local_i = (ulong)(px+Hx)+((ulong)(py+Hy)+(ulong)(pz+Hz)*local_Ny)*local_Nx; // add halo offsets
+				const ulong local_dimension = i/N;
+				return buffers[domain]->data()[local_i+local_dimension*local_N]; // array of structures
+			}
 		}
-		inline static string vtk_type() {
+		inline T& reference(const ulong i, const uint dimension) { // stitch together domain buffers and make them appear as one single large buffer
+			if(D==1u) { // take shortcut for single domain
+				return buffers[0]->data()[i+(ulong)dimension*N]; // array of structures
+			} else { // decompose index for multiple domains
+				const ulong global_i=i%N, t=global_i%NxNy;
+				const uint x=(uint)(t%(ulong)Nx), y=(uint)(t/(ulong)Nx), z=(uint)(global_i/NxNy); // n = x+(y+z*Ny)*Nx
+				const uint px=x%NxDx, py=y%NyDy, pz=z%NzDz, dx=x/NxDx, dy=y/NyDy, dz=z/NzDz, domain=dx+(dy+dz*Dy)*Dx; // 3D position within domain and which domain
+				const ulong local_i = (ulong)(px+Hx)+((ulong)(py+Hy)+(ulong)(pz+Hz)*local_Ny)*local_Nx; // add halo offsets
+				const ulong local_dimension = max(i/N, (ulong)dimension);
+				return buffers[domain]->data()[local_i+local_dimension*local_N]; // array of structures
+			}
+		}
+		inline string vtk_type() const {
 			/**/ if constexpr(std::is_same<T, char >::value) return "char" ; else if constexpr(std::is_same<T, uchar >::value) return "unsigned_char" ;
 			else if constexpr(std::is_same<T, short>::value) return "short"; else if constexpr(std::is_same<T, ushort>::value) return "unsigned_short";
 			else if constexpr(std::is_same<T, int  >::value) return "int"  ; else if constexpr(std::is_same<T, uint  >::value) return "unsigned_int"  ;
@@ -255,8 +281,16 @@ public:
 			else print_error("Error in vtk_type(): Type not supported.");
 			return "";
 		}
-		inline void write_vtk(const string& path) { // write binary .vtk file
-			const float spacing = units.si_x(1.0f);
+		inline void write_vtk(const string& path, const bool convert_to_si_units=true) { // write binary .vtk file
+			float spacing = 1.0f;
+			T unit_conversion_factor = (T)1;
+			if(convert_to_si_units) {
+				spacing = units.si_x(1.0f);
+				if(name=="rho") unit_conversion_factor = (T)units.si_rho(1.0f);
+				if(name=="u"  ) unit_conversion_factor = (T)units.si_u  (1.0f);
+				if(name=="F"  ) unit_conversion_factor = (T)units.si_F  (1.0f);
+				if(name=="T"  ) unit_conversion_factor = (T)units.si_T  (1.0f);
+			}
 			const float3 origin = spacing*float3(0.5f-0.5f*(float)Nx, 0.5f-0.5f*(float)Ny, 0.5f-0.5f*(float)Nz);
 			const string header =
 				"# vtk DataFile Version 3.0\nData\nBINARY\nDATASET STRUCTURED_POINTS\n"
@@ -266,11 +300,11 @@ public:
 				"POINT_DATA "+to_string((ulong)Nx*(ulong)Ny*(ulong)Nz)+"\nSCALARS data "+vtk_type()+" "+to_string(dimensions())+"\nLOOKUP_TABLE default\n"
 			;
 			T* data = new T[range()];
-			for(uint d=0u; d<dimensions(); d++) {
-				for(ulong i=0ull; i<length(); i++) {
-					data[i*(ulong)dimensions()+(ulong)d] = reverse_bytes(reference(i, d)); // SoA <- AoS
+			parallel_for(length(), [&](ulong i) {
+				for(uint d=0u; d<dimensions(); d++) {
+					data[i*(ulong)dimensions()+(ulong)d] = reverse_bytes((T)(unit_conversion_factor*reference(i, d))); // SoA <- AoS
 				}
-			}
+			});
 			const string filename = create_file_extension(path, ".vtk");
 			create_folder(filename);
 			std::ofstream file(filename, std::ios::out|std::ios::binary);
@@ -300,63 +334,58 @@ public:
 		Pointer x, y, z; // host buffer auxiliary pointers for multi-dimensional array access (array of structures)
 
 		inline Memory_Container(LBM* lbm, Memory<T>** buffers, const string& name) {
-			this->lbm = lbm;
-			this->Nx = lbm->get_Nx(); this->Ny = lbm->get_Ny(); this->Nz = lbm->get_Nz();
-			this->Dx = lbm->get_Dx(); this->Dy = lbm->get_Dy(); this->Dz = lbm->get_Dz();
-			this->buffers = buffers;
-			this->name = name;
-			this->N = (ulong)this->Nx*(ulong)this->Ny*(ulong)this->Nz;
+			this->N = lbm->get_N();
 			this->d = buffers[0]->dimensions();
 			if(this->N*(ulong)this->d==0ull) print_error("Memory size must be larger than 0.");
+			this->lbm = lbm;
+			this->buffers = buffers;
+			this->name = name;
+			initialize_auxiliary_variables();
 			initialize_auxiliary_pointers();
 		}
 		inline Memory_Container() {} // default constructor
 		inline Memory_Container& operator=(Memory_Container&& memory) noexcept { // move assignment
-			this->lbm = memory.lbm;
-			this->Nx = memory.Nx; this->Ny = memory.Ny; this->Nz = memory.Nz;
-			this->Dx = memory.Dx; this->Dy = memory.Dy; this->Dz = memory.Dz;
-			this->buffers = memory.buffers;
-			this->name = memory.name;
 			this->N = memory.N;
 			this->d = memory.d;
+			this->lbm = memory.lbm;
+			this->buffers = memory.buffers;
+			this->name = memory.name;
+			initialize_auxiliary_variables();
 			initialize_auxiliary_pointers();
 			return *this;
 		}
 		inline void reset(const T value=(T)0) {
-			for(uint domain=0u; domain<Dx*Dy*Dz; domain++) {
-				for(ulong i=0ull; i<range()/(ulong)(Dx*Dy*Dz); i++) buffers[domain][i] = value;
-			}
-			write_to_device();
+			for(uint domain=0u; domain<D; domain++) buffers[domain]->reset(value);
 		}
 		inline const ulong length() const { return N; }
 		inline const uint dimensions() const { return d; }
 		inline const ulong range() const { return N*(ulong)d; }
 		inline const ulong capacity() const { return N*(ulong)d*sizeof(T); } // returns capacity of the buffer in Byte
-		inline T& operator[](const ulong i) { return reference(i, 0u); }
-		inline const T& operator[](const ulong i) const { return reference(i, 0u); }
-		inline const T operator()(const ulong i) const { return reference(i, 0u); }
+		inline T& operator[](const ulong i) { return reference(i); }
+		inline const T& operator[](const ulong i) const { return reference(i); }
+		inline const T operator()(const ulong i) const { return reference(i); }
 		inline const T operator()(const ulong i, const uint dimension) const { return reference(i, dimension); } // array of structures
 		inline void read_from_device() {
 #ifndef UPDATE_FIELDS
-			for(uint domain=0u; domain<Dx*Dy*Dz; domain++) lbm->lbm[domain]->enqueue_update_fields(); // make sure data in device memory is up-to-date
+			for(uint domain=0u; domain<D; domain++) lbm->lbm_domain[domain]->enqueue_update_fields(); // make sure data in device memory is up-to-date
 #endif // UPDATE_FIELDS
-			for(uint domain=0u; domain<Dx*Dy*Dz; domain++) buffers[domain]->enqueue_read_from_device();
-			for(uint domain=0u; domain<Dx*Dy*Dz; domain++) buffers[domain]->finish_queue();
+			for(uint domain=0u; domain<D; domain++) buffers[domain]->enqueue_read_from_device();
+			for(uint domain=0u; domain<D; domain++) buffers[domain]->finish_queue();
 		}
 		inline void write_to_device() {
-			for(uint domain=0u; domain<Dx*Dy*Dz; domain++) buffers[domain]->enqueue_write_to_device();
-			for(uint domain=0u; domain<Dx*Dy*Dz; domain++) buffers[domain]->finish_queue();
+			for(uint domain=0u; domain<D; domain++) buffers[domain]->enqueue_write_to_device();
+			for(uint domain=0u; domain<D; domain++) buffers[domain]->finish_queue();
 		}
-		inline void write_host_to_vtk(const string& path="") { // write binary .vtk file
-			write_vtk(default_filename(path, name, ".vtk", lbm->get_t()));
+		inline void write_host_to_vtk(const string& path="", const bool convert_to_si_units=true) { // write binary .vtk file
+			write_vtk(default_filename(path, name, ".vtk", lbm->get_t()), convert_to_si_units);
 		}
-		inline void write_device_to_vtk(const string& path="") { // write binary .vtk file
+		inline void write_device_to_vtk(const string& path="", const bool convert_to_si_units=true) { // write binary .vtk file
 			read_from_device();
-			write_host_to_vtk(path);
+			write_host_to_vtk(path, convert_to_si_units);
 		}
 	};
 
-	LBM_Domain** lbm; // one LBM object per domain
+	LBM_Domain** lbm_domain; // one LBM domain per GPU
 
 	Memory_Container<float> rho; // density of every cell
 	Memory_Container<float> u; // velocity of every cell
@@ -408,20 +437,20 @@ public:
 	uint get_Dy() const { return Dy; } // get lattice domains in y-direction
 	uint get_Dz() const { return Dz; } // get lattice domains in z-direction
 	uint get_D() const { return Dx*Dy*Dz; } // get number of lattice domains
-	float get_nu() const { return lbm[0]->get_nu(); } // get kinematic shear viscosity
+	float get_nu() const { return lbm_domain[0]->get_nu(); } // get kinematic shear viscosity
 	float get_tau() const { return 3.0f*get_nu()+0.5f; } // get LBM relaxation time
 	float get_Re_max() const { return 0.57735027f*(float)min(min(Nx, Ny), Nz)/get_nu(); } // Re < c*L/nu
-	float get_fx() const { return lbm[0]->get_fx(); } // get global froce per volume
-	float get_fy() const { return lbm[0]->get_fy(); } // get global froce per volume
-	float get_fz() const { return lbm[0]->get_fz(); } // get global froce per volume
-	float get_sigma() const { return lbm[0]->get_sigma(); } // get surface tension coefficient
-	float get_alpha() const { return lbm[0]->get_alpha(); } // get thermal diffusion coefficient
-	float get_beta() const { return lbm[0]->get_beta(); } // get thermal expansion coefficient
-	ulong get_t() const { return lbm[0]->get_t(); } // get discrete time step in LBM units
-	uint get_velocity_set() const { return lbm[0]->get_velocity_set(); }
-	void set_fx(const float fx) { for(uint d=0u; d<get_D(); d++) lbm[d]->set_fx(fx); } // set global froce per volume
-	void set_fy(const float fy) { for(uint d=0u; d<get_D(); d++) lbm[d]->set_fy(fy); } // set global froce per volume
-	void set_fz(const float fz) { for(uint d=0u; d<get_D(); d++) lbm[d]->set_fz(fz); } // set global froce per volume
+	float get_fx() const { return lbm_domain[0]->get_fx(); } // get global froce per volume
+	float get_fy() const { return lbm_domain[0]->get_fy(); } // get global froce per volume
+	float get_fz() const { return lbm_domain[0]->get_fz(); } // get global froce per volume
+	float get_sigma() const { return lbm_domain[0]->get_sigma(); } // get surface tension coefficient
+	float get_alpha() const { return lbm_domain[0]->get_alpha(); } // get thermal diffusion coefficient
+	float get_beta() const { return lbm_domain[0]->get_beta(); } // get thermal expansion coefficient
+	ulong get_t() const { return lbm_domain[0]->get_t(); } // get discrete time step in LBM units
+	uint get_velocity_set() const { return lbm_domain[0]->get_velocity_set(); }
+	void set_fx(const float fx) { for(uint d=0u; d<get_D(); d++) lbm_domain[d]->set_fx(fx); } // set global froce per volume
+	void set_fy(const float fy) { for(uint d=0u; d<get_D(); d++) lbm_domain[d]->set_fy(fy); } // set global froce per volume
+	void set_fz(const float fz) { for(uint d=0u; d<get_D(); d++) lbm_domain[d]->set_fz(fz); } // set global froce per volume
 	void set_f(const float fx, const float fy, const float fz) { set_fx(fx); set_fy(fy); set_fz(fz); } // set global froce per volume
 
 	void coordinates(const ulong n, uint& x, uint& y, uint& z) const { // disassemble 1D linear index to 3D coordinates (n -> x,y,z)
@@ -483,7 +512,7 @@ public:
 
 	void voxelize_mesh_on_device(const Mesh* mesh, const uchar flag=TYPE_S, const float3& rotation_center=float3(0.0f), const float3& linear_velocity=float3(0.0f), const float3& rotational_velocity=float3(0.0f)); // voxelize mesh
 	void unvoxelize_mesh_on_device(const Mesh* mesh, const uchar flag=TYPE_S); // remove voxelized triangle mesh from LBM grid
-	void write_mesh_to_vtk(const Mesh* mesh, const string& path="") const; // write mesh to binary .vtk file
+	void write_mesh_to_vtk(const Mesh* mesh, const string& path="", const bool convert_to_si_units=true) const; // write mesh to binary .vtk file
 	void voxelize_stl(const string& path, const float3& center, const float3x3& rotation, const float size=0.0f, const uchar flag=TYPE_S); // read and voxelize binary .stl file
 	void voxelize_stl(const string& path, const float3x3& rotation, const float size=0.0f, const uchar flag=TYPE_S); // read and voxelize binary .stl file (place in box center)
 	void voxelize_stl(const string& path, const float3& center, const float size=0.0f, const uchar flag=TYPE_S); // read and voxelize binary .stl file (no rotation)
@@ -495,6 +524,7 @@ public:
 		LBM* lbm = nullptr;
 		std::atomic_int running_encoders = 0;
 		uint last_exported_frame = 0u; // for next_frame(...) function
+		int last_visualization_modes=0, last_field_mode=0, last_slice_mode=0, last_slice_x=0, last_slice_y=0, last_slice_z=0; // don't render a new frame if the scene hasn't changed since last frame
 		void default_settings() {
 			visualization_modes |= VIS_FLAG_LATTICE;
 #ifdef PARTICLES
@@ -503,7 +533,7 @@ public:
 		}
 
 	public:
-		int visualization_modes=0, slice_mode=0, slice_x=0, slice_y=0, slice_z=0; // slice visualization: mode = { 0 (no slice), 1 (x), 2 (y), 3 (z), 4 (xz), 5 (xyz), 6 (yz), 7 (xy) }, slice_{xyz} = position of slices
+		int visualization_modes=0, field_mode=0, slice_mode=0, slice_x=0, slice_y=0, slice_z=0; // field_mode = { 0 (u), 1 (rho), 2 (T) }, slice_mode = { 0 (no slice), 1 (x), 2 (y), 3 (z), 4 (xz), 5 (xyz), 6 (yz), 7 (xy) }, slice_{xyz} = position of slices
 
 		Graphics() {} // default constructor
 		Graphics(LBM* lbm) {
@@ -528,6 +558,7 @@ public:
 		Graphics& operator=(const Graphics& graphics) { // copy assignment
 			lbm = graphics.lbm;
 			visualization_modes = graphics.visualization_modes;
+			field_mode = graphics.field_mode;
 			slice_mode = graphics.slice_mode;
 			slice_x = graphics.slice_x;
 			slice_y = graphics.slice_y;

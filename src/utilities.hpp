@@ -240,11 +240,12 @@ inline float standard_deviation(const uint n, const float* const x) {
 	}
 	return (float)sqrt(s/(double)n);
 }
-inline float random(const float x=1.0f) {
-	return x*((float)rand()/(float)RAND_MAX);
+inline float random(uint& seed, const float x=1.0f) {
+	seed = (1103515245u*seed+12345u)%2147483648u; // standard C99 LCG
+	return x*(float)seed*4.65661287E-10f;
 }
-inline float random_symmetric(const float x=1.0f) {
-	return 2.0f*x*((float)rand()/(float)RAND_MAX-0.5f);
+inline float random_symmetric(uint& seed, const float x=1.0f) {
+	return 2.0f*x*(random(seed, 1.0f)-0.5f);
 }
 inline void lu_solve(float* M, float* x, float* b, const int N) { // solves system of N linear equations M*x=b
 	for(int i=0; i<N; i++) { // decompose M in M=L*U
@@ -1239,8 +1240,7 @@ struct floatN {
 	floatN(const uint N, const floatNxN& m); // forward-declare floatNxN constructor
 	floatN() = default;
 	~floatN() {
-		if(N==0u) delete[] V;
-		N = 0u;
+		delete[] V;
 	}
 	inline float& operator[](const uint i) {
 		return V[i];
@@ -1382,8 +1382,7 @@ struct floatNxN {
 	}
 	floatNxN() = default;
 	~floatNxN() {
-		if(N==0u) delete[] M;
-		N = 0u;
+		delete[] M;
 	}
 	inline float& operator[](const uint i) {
 		return M[i];
@@ -1983,8 +1982,7 @@ struct doubleN {
 	doubleN(const uint N, const doubleNxN& m); // forward-declare doubleNxN constructor
 	doubleN() = default;
 	~doubleN() {
-		if(N==0u) delete[] V;
-		N = 0u;
+		delete[] V;
 	}
 	inline double& operator[](const uint i) {
 		return V[i];
@@ -2126,8 +2124,7 @@ struct doubleNxN {
 	}
 	doubleNxN() = default;
 	~doubleNxN() {
-		if(N==0u) delete[] M;
-		N = 0u;
+		delete[] M;
 	}
 	inline double& operator[](const uint i) {
 		return M[i];
@@ -2848,7 +2845,7 @@ inline void print(const string& s="") {
 	std::cout << s;
 }
 inline void println(const string& s="") {
-	std::cout << s+'\n';
+	std::cout << s+"\n";
 }
 inline void reprint(const string& s="") {
 	std::cout << "\r"+s;
@@ -2972,6 +2969,15 @@ inline int color(const int red, const int green, const int blue) {
 inline int color(const int red, const int green, const int blue, const int alpha) {
 	return (alpha&255)<<24|(red&255)<<16|(green&255)<<8|(blue&255);
 }
+inline int color(const float red, const float green, const float blue) {
+	return clamp((int)(255.0f*red+0.5f), 0, 255)<<16|clamp((int)(255.0f*green+0.5f), 0, 255)<<8|clamp((int)(255.0f*blue+0.5f), 0, 255);
+}
+inline int color(const float red, const float green, const float blue, const float alpha) {
+	return clamp((int)(255.0f*alpha+0.5f), 0, 255)<<24|clamp((int)(255.0f*red+0.5f), 0, 255)<<16|clamp((int)(255.0f*green+0.5f), 0, 255)<<8|clamp((int)(255.0f*blue+0.5f), 0, 255);
+}
+inline int color(const float3 rgb) {
+	return color(rgb.x, rgb.y, rgb.z);
+}
 inline int red(const int color) {
 	return (color>>16)&255;
 }
@@ -2989,30 +2995,40 @@ inline int brightness(const int color) {
 }
 inline int grayscale(const int color) {
 	const int b = brightness(color);
-	return ::color(b, b, b);
+	return b<<16|b<<8|b;
 }
 inline int invert(const int color) { // invert color
-	return ::color(255-red(color), 255-green(color), 255-blue(color));
+	return (255-red(color))<<16|(255-green(color))<<8|(255-blue(color));
 }
 inline int invert_brightness(const int color) { // invert brightness, but retain color
 	const int r = red(color), g=green(color), b=blue(color);
 	return ::color(255-(g+b)/2, 255-(r+b)/2, 255-(r+g)/2);
 }
-inline int color_average(const int c1, const int c2) {
-	const int r1=red(c1), g1=green(c1), b1=blue(c1);
-	const int r2=red(c2), g2=green(c2), b2=blue(c2);
-	return color((r1+r2)/2, (g1+g2)/2, (b1+b2)/2);
+inline int color_mul(const int c, const float x) { // c*x
+	const int r = min((int)fma((float)red  (c), x, 0.5f), 255);
+	const int g = min((int)fma((float)green(c), x, 0.5f), 255);
+	const int b = min((int)fma((float)blue (c), x, 0.5f), 255);
+	return r<<16|g<<8|b; // values are already clamped
 }
 inline int color_add(const int c1, const int c2) {
 	const int r1=red(c1), g1=green(c1), b1=blue(c1);
 	const int r2=red(c2), g2=green(c2), b2=blue(c2);
-	return color(min(r1+r2, 255), min(g1+g2, 255), min(b1+b2, 255));
+	return min(r1+r2, 255)<<16|min(g1+g2, 255)<<8|min(b1+b2, 255); // values are already clamped
 }
-inline int color_dim(const int c, const float x) {
-	const int r = clamp((int)fma((float)red  (c), x, 0.5f), 0, 255);
-	const int g = clamp((int)fma((float)green(c), x, 0.5f), 0, 255);
-	const int b = clamp((int)fma((float)blue (c), x, 0.5f), 0, 255);
-	return color(r, g, b);
+inline int color_average(const int c1, const int c2) {
+	const int r1=red(c1), g1=green(c1), b1=blue(c1);
+	const int r2=red(c2), g2=green(c2), b2=blue(c2);
+	return ((r1+r2)/2)<<16|((g1+g2)/2)<<8|((b1+b2)/2);
+}
+inline int color_mix(const int c1, const int c2, const float w) { // w*c1+(1-w)*c2
+	const float3 fc1=float3((float)red(c1), (float)green(c1), (float)blue(c1)), fc2=float3((float)red(c2), (float)green(c2), (float)blue(c2));
+	const float3 fcm = w*fc1+(1.0f-w)*fc2+0.5f;
+	return color((int)fcm.x, (int)fcm.y, (int)fcm.z);
+}
+inline int color_mix_3(const int c0, const int c1, const int c2, const float w0, const float w1, const float w2) { // w1*c1+w2*c2+w3*c3, w0+w1+w2 = 1
+	const float3 fc0=float3((float)red(c0), (float)green(c0), (float)blue(c0)),  fc1=float3((float)red(c1), (float)green(c1), (float)blue(c1)), fc2=float3((float)red(c2), (float)green(c2), (float)blue(c2));
+	const float3 fcm = w0*fc0+w1*fc1+w2*fc2+0.5f;
+	return color((int)fcm.x, (int)fcm.y, (int)fcm.z);
 }
 inline float3 rgb_to_hsv(const int red, const int green, const int blue) {
 	const int cmax = max(max(red, green), blue);
@@ -3027,7 +3043,7 @@ inline float3 rgb_to_hsv(const int red, const int green, const int blue) {
 inline float3 rgb_to_hsv(const int color) {
 	return rgb_to_hsv(red(color), green(color), blue(color));
 }
-inline uint hsv_to_rgb(const float h, const float s, const float v) {
+inline int hsv_to_rgb(const float h, const float s, const float v) {
 	const float c = v*s;
 	const float x = c*(1.0f-fabs(fmod(h/60.0f, 2.0f)-1.0f));
 	const float m = v-c;
@@ -3038,10 +3054,54 @@ inline uint hsv_to_rgb(const float h, const float s, const float v) {
 	else if(h<240.0f) { g = x; b = c; }
 	else if(h<300.0f) { r = x; b = c; }
 	else if(h<360.0f) { r = c; b = x; }
-	return color((uchar)((r+m)*255.0f), (uchar)((g+m)*255.0f), (uchar)((b+m)*255.0f));
+	return color(r+m, g+m, b+m);
 }
-inline uint hsv_to_rgb(const float3& hsv) {
+inline int hsv_to_rgb(const float3& hsv) {
 	return hsv_to_rgb(hsv.x, hsv.y, hsv.z);
+}
+inline int colorscale_rainbow(float x) { // coloring scheme (float [0, 1] -> int color)
+	x = clamp(6.0f*(1.0f-x), 0.0f, 6.0f);
+	float r=0.0f, g=0.0f, b=0.0f; // black
+	if(x<1.2f) { // red - yellow
+		r = 1.0f;
+		g = x*0.83333333f;
+	} else if(x>=1.2f&&x<2.0f) { // yellow - green
+		r = 2.5f-x*1.25f;
+		g = 1.0f;
+	} else if(x>=2.0f&&x<3.0f) { // green - cyan
+		g = 1.0f;
+		b = x-2.0f;
+	} else if(x>=3.0f&&x<4.0f) { // cyan - blue
+		g = 4.0f-x;
+		b = 1.0f;
+	} else if(x>=4.0f&&x<5.0f) { // blue - violet
+		r = x*0.4f-1.6f;
+		b = 3.0f-x*0.5f;
+	} else { // violet - black
+		r = 2.4f-x*0.4f;
+		b = 3.0f-x*0.5f;
+	}
+	return color(r, g, b);
+}
+inline int colorscale_iron(float x) { // coloring scheme (float [0, 1] -> int color)
+	x = clamp(4.0f*(1.0f-x), 0.0f, 4.0f);
+	float r=1.0f, g=0.0f, b=0.0f;
+	if(x<0.66666667f) { // white - yellow
+		g = 1.0f;
+		b = 1.0f-x*1.5f;
+	} else if(x<2.0f) { // yellow - red
+		g = 1.5f-x*0.75f;
+	} else if(x<3.0f) { // red - violet
+		r = 2.0f-x*0.5f;
+		b = x-2.0f;
+	} else { // violet - black
+		r = 2.0f-x*0.5f;
+		b = 4.0f-x;
+	}
+	return color(r, g, b);
+}
+inline int colorscale_twocolor(const float x, const int background_color) { // coloring scheme (float [0, 1] -> int color)
+	return x>0.5f ? color_mix(0xFFAA00, background_color, clamp(2.0f*x-1.0f, 0.0f, 1.0f)) : color_mix(background_color, 0x0080FF, clamp(2.0f*x, 0.0f, 1.0f)); // red - gray - blue
 }
 
 #define color_black      0
@@ -3077,7 +3137,10 @@ inline uint hsv_to_rgb(const float3& hsv) {
 #elif defined(__linux__)||defined(__APPLE__)
 #include <sys/ioctl.h> // for getting console size
 #include <unistd.h> // for getting path of executable
-#else // Linux
+#if defined(__APPLE__)
+#include <mach-o/dyld.h> // _NSGetExecutablePath
+#endif // Apple
+#else // Linux or Apple
 #undef UTILITIES_CONSOLE_COLOR
 #endif // Windows/Linux
 #endif // UTILITIES_CONSOLE_COLOR
@@ -3090,6 +3153,11 @@ inline string get_exe_path() { // returns path where executable is located, ends
 	std::wstring ws(wc);
 	transform(ws.begin(), ws.end(), back_inserter(path), [](wchar_t c) { return (char)c; });
 	path = replace(path, "\\", "/");
+#elif defined(__APPLE__)
+	uint length = 0u;
+	_NSGetExecutablePath(nullptr, &length);
+	path.resize(length+1u, 0);
+	_NSGetExecutablePath(path.data(), &length);
 #else // Linux
 	char c[260];
 	int length = (int)readlink("/proc/self/exe", c, 260);
@@ -3312,8 +3380,8 @@ inline void print_no_reset(const string& s, const int textcolor, const int backg
 	print_color(textcolor, backgroundcolor);
 	std::cout << s;
 }
-static Image* print_image_rescaled = nullptr;
 inline void print_image(const Image* image, const uint textwidth=0u, const uint textheight=0u) {
+	static Image* image_rescaled = nullptr;
 	uint newwidth=(uint)(CONSOLE_WIDTH), newheight=(uint)(CONSOLE_WIDTH)*9u/16u;
 	if(textwidth==0u&&textheight==0u) {
 		uint fontwidth=8u, fontheight=16u;
@@ -3325,16 +3393,16 @@ inline void print_image(const Image* image, const uint textwidth=0u, const uint 
 		newwidth = textwidth;
 		newheight = 2u*textheight;
 	}
-	print_image_rescaled = rescale(image, newwidth, newheight, print_image_rescaled);
+	image_rescaled = rescale(image, newwidth, newheight, image_rescaled);
 #if defined(_WIN32)
 	const string s = string("")+(char)223; // trick to double vertical resolution: use graphic character
 	for(uint y=0u; y<newheight-1u; y+=2u) {
-		int ltc = get_console_color(print_image_rescaled->color(0u, y   ));
-		int lbc = get_console_color(print_image_rescaled->color(0u, y+1u));
+		int ltc = get_console_color(image_rescaled->color(0u, y   ));
+		int lbc = get_console_color(image_rescaled->color(0u, y+1u));
 		string segment = s;
 		for(uint x=1; x<newwidth; x++) {
-			const int tc = get_console_color(print_image_rescaled->color(x, y   ));
-			const int bc = get_console_color(print_image_rescaled->color(x, y+1u));
+			const int tc = get_console_color(image_rescaled->color(x, y   ));
+			const int bc = get_console_color(image_rescaled->color(x, y+1u));
 			if(tc==ltc&&bc==lbc) { // still the same color
 				segment += s; // skip color change command if color is the same for consecutive pixels
 			} else { // color has changed
@@ -3353,8 +3421,8 @@ inline void print_image(const Image* image, const uint textwidth=0u, const uint 
 	for(uint y=0u; y<newheight-1u; y+=2u) {
 		int ltc=-1, lbc=-1;
 		for(uint x=0u; x<newwidth; x++) {
-			const int tc = get_console_color(print_image_rescaled->color(x, y   ));
-			const int bc = get_console_color(print_image_rescaled->color(x, y+1u));
+			const int tc = get_console_color(image_rescaled->color(x, y   ));
+			const int bc = get_console_color(image_rescaled->color(x, y+1u));
 			if(tc==ltc&&bc==lbc) { // still the same color
 				r += s; // skip color change command if color is the same for consecutive pixels
 			} else { // color has changed
@@ -3369,6 +3437,7 @@ inline void print_image(const Image* image, const uint textwidth=0u, const uint 
 #endif // Windows/Linux
 }
 inline void print_image_bw(const Image* image, const uint textwidth=0u, const uint textheight=0u) { // black and white mode
+	static Image* image_rescaled = nullptr;
 	uint newwidth=(uint)(CONSOLE_WIDTH), newheight=(uint)(CONSOLE_WIDTH)*9u/16u;
 	if(textwidth==0u&&textheight==0u) {
 		uint fontwidth=8u, fontheight=16u;
@@ -3380,7 +3449,7 @@ inline void print_image_bw(const Image* image, const uint textwidth=0u, const ui
 		newwidth = textwidth;
 		newheight = 2u*textheight;
 	}
-	print_image_rescaled = rescale(image, newwidth, newheight, print_image_rescaled);
+	image_rescaled = rescale(image, newwidth, newheight, image_rescaled);
 	const string bb = " ";
 #if defined(_WIN32)
 	const string ww = string("")+(char)219; // trick to double vertical resolution: use graphic characters
@@ -3394,30 +3463,24 @@ inline void print_image_bw(const Image* image, const uint textwidth=0u, const ui
 	string r = ""; // append to a string, print string in the end (much faster)
 	for(uint y=0u; y<newheight-1u; y+=2u) {
 		for(uint x=0u; x<newwidth; x++) {
-			const bool t = brightness(print_image_rescaled->color(x, y   ))>127;
-			const bool b = brightness(print_image_rescaled->color(x, y+1u))>127;
+			const bool t = brightness(image_rescaled->color(x, y   ))>127;
+			const bool b = brightness(image_rescaled->color(x, y+1u))>127;
 			r += t ? b ? ww : wb : b ? bw : bb;
 		}
 		r += "\n"; // add new line
 	}
 	print(r);
 }
-#ifdef UTILITIES_CONSOLE_DITHER_LOOKUP
-static bool print_image_dither_lookup_initialized = false;
-static ushort* print_image_dither_lookup = nullptr;
-inline void print_image_dither_initialize_lookup() { // initialize lookup table parallelized (much faster)
-	if(!print_image_dither_lookup_initialized) {
-		print_image_dither_lookup = new ushort[16777216];
-		parallel_for(16777216u, [&](uint n) {
-			print_image_dither_lookup[n] = get_console_color_dither((int)n);
-		});
-		print_image_dither_lookup_initialized = true;
-	}
-}
-#endif // UTILITIES_CONSOLE_DITHER_LOOKUP
 inline void print_image_dither(const Image* image, const uint textwidth=0u, const uint textheight=0u) {
+	static Image* image_rescaled = nullptr;
 #ifdef UTILITIES_CONSOLE_DITHER_LOOKUP
-	print_image_dither_initialize_lookup();
+	static ushort* dither_lookup = nullptr;
+	if(dither_lookup==nullptr) {
+		dither_lookup = new ushort[16777216];
+		parallel_for(16777216u, [&](uint n) { // initialize lookup table parallelized (much faster)
+			dither_lookup[n] = get_console_color_dither((int)n);
+		});
+	}
 #endif // UTILITIES_CONSOLE_DITHER_LOOKUP
 	uint newwidth=(uint)(CONSOLE_WIDTH), newheight=(uint)(CONSOLE_WIDTH)*9u/16u;
 	if(textwidth==0u&&textheight==0u) {
@@ -3430,23 +3493,23 @@ inline void print_image_dither(const Image* image, const uint textwidth=0u, cons
 		newwidth = textwidth;
 		newheight = textheight;
 	}
-	print_image_rescaled = rescale(image, newwidth, newheight, print_image_rescaled);
+	image_rescaled = rescale(image, newwidth, newheight, image_rescaled);
 #if defined(_WIN32)
 	const string s[3] = { string("")+(char)176, string("")+(char)177, string("")+(char)178 };
 	for(uint y=0u; y<newheight; y++) {
 #ifdef UTILITIES_CONSOLE_DITHER_LOOKUP
-		const int dither = (int)print_image_dither_lookup[print_image_rescaled->color(0u, y)];
+		const int dither = (int)dither_lookup[image_rescaled->color(0u, y)];
 #else // UTILITIES_CONSOLE_DITHER_LOOKUP
-		const int dither = (int)get_console_color_dither(print_image_rescaled->color(0u, y));
+		const int dither = (int)get_console_color_dither(image_rescaled->color(0u, y));
 #endif // UTILITIES_CONSOLE_DITHER_LOOKUP
 		const int shade = dither>>8;
 		int ltc=(dither>>4)&0xF, lbc=dither&0xF;
 		string segment = s[shade];
 		for(uint x=1u; x<newwidth; x++) {
 #ifdef UTILITIES_CONSOLE_DITHER_LOOKUP
-			const int dither = (int)print_image_dither_lookup[print_image_rescaled->color(x, y)];
+			const int dither = (int)dither_lookup[image_rescaled->color(x, y)];
 #else // UTILITIES_CONSOLE_DITHER_LOOKUP
-			const int dither = (int)get_console_color_dither(print_image_rescaled->color(x, y));
+			const int dither = (int)get_console_color_dither(image_rescaled->color(x, y));
 #endif // UTILITIES_CONSOLE_DITHER_LOOKUP
 			const int shade = dither>>8;
 			const int tc=(dither>>4)&0xF, bc=dither&0xF;
@@ -3468,9 +3531,9 @@ inline void print_image_dither(const Image* image, const uint textwidth=0u, cons
 		int ltc=-1, lbc=-1;
 		for(uint x=0u; x<newwidth; x++) {
 #ifdef UTILITIES_CONSOLE_DITHER_LOOKUP
-			const int dither = (int)print_image_dither_lookup[print_image_rescaled->color(x, y)];
+			const int dither = (int)dither_lookup[image_rescaled->color(x, y)];
 #else // UTILITIES_CONSOLE_DITHER_LOOKUP
-			const int dither = (int)get_console_color_dither(print_image_rescaled->color(x, y));
+			const int dither = (int)get_console_color_dither(image_rescaled->color(x, y));
 #endif // UTILITIES_CONSOLE_DITHER_LOOKUP
 			const int shade = dither>>8;
 			const int tc=(dither>>4)&0xF, bc=dither&0xF;
@@ -3486,10 +3549,17 @@ inline void print_image_dither(const Image* image, const uint textwidth=0u, cons
 	print(r);
 #endif // Windows/Linux
 }
-static Image* print_video_lastframe = nullptr;
 inline void print_video_dither(const Image* image, const uint textwidth=0u, const uint textheight=0u) { // optimized for video (only draws pixels that differ from last frame)
+	static Image* video_lastframe = nullptr;
+	static Image* image_rescaled = nullptr;
 #ifdef UTILITIES_CONSOLE_DITHER_LOOKUP
-	print_image_dither_initialize_lookup();
+	static ushort* dither_lookup = nullptr;
+	if(dither_lookup==nullptr) {
+		dither_lookup = new ushort[16777216];
+		parallel_for(16777216u, [&](uint n) { // initialize lookup table parallelized (much faster)
+			dither_lookup[n] = get_console_color_dither((int)n);
+		});
+	}
 #endif // UTILITIES_CONSOLE_DITHER_LOOKUP
 	uint newwidth=(uint)(CONSOLE_WIDTH), newheight=(uint)(CONSOLE_WIDTH)*9u/16u;
 	if(textwidth==0u&&textheight==0u) {
@@ -3502,38 +3572,39 @@ inline void print_video_dither(const Image* image, const uint textwidth=0u, cons
 		newwidth = textwidth;
 		newheight = textheight;
 	}
-	print_image_rescaled = rescale(image, newwidth, newheight, print_image_rescaled); // do resolution downsampling
+	image_rescaled = rescale(image, newwidth, newheight, image_rescaled); // do resolution downsampling
 	for(uint i=0u; i<newwidth*newheight; i++) { // do color subsampling
 #ifdef UTILITIES_CONSOLE_DITHER_LOOKUP
-		print_image_rescaled->set_color(i, (int)print_image_dither_lookup[print_image_rescaled->color(i)]);
+		image_rescaled->set_color(i, (int)dither_lookup[image_rescaled->color(i)]);
 #else // UTILITIES_CONSOLE_DITHER_LOOKUP
-		print_image_rescaled->set_color(i, (int)get_console_color_dither(print_image_rescaled->color(i)));
+		image_rescaled->set_color(i, (int)get_console_color_dither(image_rescaled->color(i)));
 #endif // UTILITIES_CONSOLE_DITHER_LOOKUP
 	}
-	bool print_video_lastframe_is_new = false;
-	if(print_video_lastframe==nullptr||print_video_lastframe->width()!=newwidth||print_video_lastframe->height()!=newheight) {
-		delete print_video_lastframe;
-		print_video_lastframe = new Image(newwidth, newheight);
-		print_video_lastframe_is_new = true;
+	bool video_lastframe_is_new = false;
+	if(video_lastframe==nullptr||video_lastframe->width()!=newwidth||video_lastframe->height()!=newheight) {
+		delete video_lastframe;
+		video_lastframe = new Image(newwidth, newheight);
+		video_lastframe_is_new = true;
+		clear_console();
 	}
-	uint changed_pixels = 0u; // reuse print_video_lastframe as list of all changed pixels
+	uint changed_pixels = 0u; // reuse video_lastframe as list of all changed pixels
 	for(uint i=0u; i<newwidth*newheight; i++) {
-		if(print_video_lastframe_is_new || print_image_rescaled->color(i)!=print_video_lastframe->color(i)) print_video_lastframe->set_color(changed_pixels++, (int)i);
+		if(video_lastframe_is_new||image_rescaled->color(i)!=video_lastframe->color(i)) video_lastframe->set_color(changed_pixels++, (int)i);
 	}
 	if(changed_pixels>0u) { // at least one pixel has changed
 #if defined(_WIN32)
 		const string s[3] = { string("")+(char)176, string("")+(char)177, string("")+(char)178 };
-		const uint n = (uint)print_video_lastframe->color(0); // do first entry manually
+		const uint n = (uint)video_lastframe->color(0); // do first entry manually
 		uint lx=n%newwidth, ly=n/newwidth;
-		const int dither = print_image_rescaled->color(lx, ly);
+		const int dither = image_rescaled->color(lx, ly);
 		const int shade = dither>>8;
 		int ltc=(dither>>4)&0xF, lbc=dither&0xF;
 		set_console_cursor(lx, ly);
 		string segment = s[shade]; // reset segment
 		for(uint i=1u; i<changed_pixels; i++) {
-			const uint n = (uint)print_video_lastframe->color(i); // get index of changed pixel
+			const uint n = (uint)video_lastframe->color(i); // get index of changed pixel
 			const uint x=n%newwidth, y=n/newwidth; // get coordinates of changed pixel
-			const int dither = print_image_rescaled->color(x, y); // get color of changed pixel
+			const int dither = image_rescaled->color(x, y); // get color of changed pixel
 			const int shade = dither>>8;
 			const int tc=(dither>>4)&0xF, bc=dither&0xF;
 			if(tc!=ltc||bc!=lbc||x!=lx+1u||y!=ly) { // color has changed or cursor has moved
@@ -3556,9 +3627,9 @@ inline void print_video_dither(const Image* image, const uint textwidth=0u, cons
 		uint lx=max_uint, ly=max_uint;
 		int ltc=-1, lbc=-1;
 		for(uint i=0u; i<changed_pixels; i++) {
-			const uint n = (uint)print_video_lastframe->color(i); // get index of changed pixel
+			const uint n = (uint)video_lastframe->color(i); // get index of changed pixel
 			const uint x=n%newwidth, y=n/newwidth; // get coordinates of changed pixel
-			const int dither = print_image_rescaled->color(x, y); // get color of changed pixel
+			const int dither = image_rescaled->color(x, y); // get color of changed pixel
 			const int shade = dither>>8;
 			const int tc=(dither>>4)&0xF, bc=dither&0xF;
 			if(x!=lx+1u||y!=ly) { // cursor has moved
@@ -3573,14 +3644,11 @@ inline void print_video_dither(const Image* image, const uint textwidth=0u, cons
 			lx = x;
 			ly = y;
 		}
-		r += "\033[0m"; // reset color
-		print(r);
+		print(r+"\033[0m"); // reset color
 #endif // Windows/Linux
 	}
 	set_console_cursor(0u, newheight);
-	Image* swap = print_video_lastframe; // swap currentframe and lastframe
-	print_video_lastframe = print_image_rescaled;
-	print_image_rescaled = swap;
+	std::swap(image_rescaled, video_lastframe); // swap currentframe and lastframe
 }
 inline Image* screenshot(Image* image=nullptr) {
 #if defined(_WIN32)
@@ -4058,7 +4126,7 @@ inline void write_bmp(const string& filename, const Image* image) {
 		header[22u+i] = (uchar)((image->height()>>(8u*i))&255);
 	}
 	uchar* data = new uchar[filesize];
-	for(uint i=0u; i<54; i++) data[i] = header[i];
+	for(uint i=0u; i<54u; i++) data[i] = header[i];
 	for(uint y=0u; y<image->height(); y++) {
 		for(uint x=0u; x<image->width(); x++) {
 			const int color = image->color(x, image->height()-1u-y);
