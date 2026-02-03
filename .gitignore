@@ -4,3 +4,8 @@ stl/
 .vs/
 FluidX3D.vcxproj.user
 .DS_Store
+.cache/
+.vscode
+.zed
+.idea
+build/

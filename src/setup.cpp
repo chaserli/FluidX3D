@@ -2,7 +2,7 @@
 
 
 
-#ifdef BENCHMARK
+#ifdef SETUP_BENCHMARK
 #include "info.hpp"
 void main_setup() { // benchmark; required extensions in defines.hpp: BENCHMARK, optionally FP16S or FP16C
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
@@ -33,11 +33,12 @@ void main_setup() { // benchmark; required extensions in defines.hpp: BENCHMARK,
 	wait();
 #endif // Windows
 } /**/
-#endif // BENCHMARK
+#endif // SETUP_BENCHMARK
 
 
 
-/*void main_setup() { // 3D Taylor-Green vortices; required extensions in defines.hpp: INTERACTIVE_GRAPHICS
+#ifdef SETUP_3D_TAYLOR_GREEN_VORTICES
+void main_setup() { // 3D Taylor-Green vortices; required extensions in defines.hpp: INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	LBM lbm(128u, 128u, 128u, 1u, 1u, 1u, 0.01f);
 	// ###################################################################################### define geometry ######################################################################################
@@ -56,11 +57,13 @@ void main_setup() { // benchmark; required extensions in defines.hpp: BENCHMARK,
 	lbm.graphics.visualization_modes = VIS_STREAMLINES;
 	lbm.run();
 	//lbm.run(1000u); lbm.u.read_from_device(); println(lbm.u.x[lbm.index(Nx/2u, Ny/2u, Nz/2u)]); wait(); // test for binary identity
-} /**/
+}
+#endif // SETUP_3D_TAYLOR_GREEN_VORTICES
 
 
 
-/*void main_setup() { // 2D Taylor-Green vortices (use D2Q9); required extensions in defines.hpp: INTERACTIVE_GRAPHICS
+#ifdef SETUP_2D_TAYLOR_GREEN_VORTICES_USE_D2Q9
+void main_setup() { // 2D Taylor-Green vortices (use D2Q9); required extensions in defines.hpp: INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	LBM lbm(1024u, 1024u, 1u, 0.02f);
 	// ###################################################################################### define geometry ######################################################################################
@@ -77,11 +80,13 @@ void main_setup() { // benchmark; required extensions in defines.hpp: BENCHMARK,
 	lbm.graphics.visualization_modes = VIS_FIELD;
 	lbm.graphics.slice_mode = 3;
 	lbm.run();
-} /**/
+}
+#endif // SETUP_2D_TAYLOR_GREEN_VORTICES_USE_D2Q9
 
 
 
-/*void main_setup() { // Poiseuille flow validation; required extensions in defines.hpp: VOLUME_FORCE
+#ifdef SETUP_POISEUILLE_FLOW_VALIDATION
+void main_setup() { // Poiseuille flow validation; required extensions in defines.hpp: VOLUME_FORCE
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	const uint R = 63u; // channel radius (default: 63)
 	const float umax = 0.1f; // maximum velocity in channel center (must be < 0.57735027f)
@@ -141,11 +146,13 @@ void main_setup() { // benchmark; required extensions in defines.hpp: BENCHMARK,
 		error_min = fmin(error_min, sqrt(error_dif/error_sum));
 		print_info("Poiseuille flow error after t="+to_string(lbm.get_t())+" is "+to_string(100.0*error_min, 3u)+"%"); // typical expected L2 errors: 2-5% (Krüger p. 256)
 	}
-} /**/
+}
+#endif // SETUP_POISEUILLE_FLOW_VALIDATION
 
 
 
-/*void main_setup() { // Stokes drag validation; required extensions in defines.hpp: FORCE_FIELD, EQUILIBRIUM_BOUNDARIES
+#ifdef SETUP_STOKES_DRAG_VALIDATION
+void main_setup() { // Stokes drag validation; required extensions in defines.hpp: FORCE_FIELD, EQUILIBRIUM_BOUNDARIES
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	const ulong dt = 100ull; // check error every dt time steps
 	const float R = 32.0f; // sphere radius
@@ -184,11 +191,13 @@ void main_setup() { // benchmark; required extensions in defines.hpp: BENCHMARK,
 		E2 = E1;
 		E1 = E0;
 	}
-} /**/
+}
+#endif // SETUP_STOKES_DRAG_VALIDATION
 
 
 
-/*void main_setup() { // cylinder in rectangular duct; required extensions in defines.hpp: VOLUME_FORCE, INTERACTIVE_GRAPHICS
+#ifdef SETUP_CYLINDER_IN_RECTANGULAR_DUCT
+void main_setup() { // cylinder in rectangular duct; required extensions in defines.hpp: VOLUME_FORCE, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	const float Re = 25000.0f;
 	const float D = 64.0f;
@@ -205,11 +214,13 @@ void main_setup() { // benchmark; required extensions in defines.hpp: BENCHMARK,
 	}); // ####################################################################### run simulation, export images and data ##########################################################################
 	lbm.graphics.visualization_modes = VIS_FLAG_LATTICE|VIS_Q_CRITERION;
 	lbm.run();
-} /**/
+}
+#endif // SETUP_CYLINDER_IN_RECTANGULAR_DUCT
 
 
 
-/*void main_setup() { // Taylor-Couette flow; required extensions in defines.hpp: MOVING_BOUNDARIES, INTERACTIVE_GRAPHICS
+#ifdef SETUP_TAYLOR_COUETTE_FLOW
+void main_setup() { // Taylor-Couette flow; required extensions in defines.hpp: MOVING_BOUNDARIES, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	LBM lbm(96u, 96u, 192u, 1u, 1u, 1u, 0.04f);
 	// ###################################################################################### define geometry ######################################################################################
@@ -229,11 +240,13 @@ void main_setup() { // benchmark; required extensions in defines.hpp: BENCHMARK,
 	lbm.graphics.visualization_modes = VIS_FLAG_LATTICE|VIS_STREAMLINES;
 	lbm.run();
 	//lbm.run(4000u); lbm.u.read_from_device(); println(lbm.u.x[lbm.index(Nx/4u, Ny/4u, Nz/2u)]); wait(); // test for binary identity
-} /**/
+}
+#endif // SETUP_TAYLOR_COUETTE_FLOW
 
 
 
-/*void main_setup() { // lid-driven cavity; required extensions in defines.hpp: MOVING_BOUNDARIES, INTERACTIVE_GRAPHICS
+#ifdef SETUP_LID_DRIVEN_CAVITY
+void main_setup() { // lid-driven cavity; required extensions in defines.hpp: MOVING_BOUNDARIES, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	const uint L = 128u;
 	const float Re = 1000.0f;
@@ -246,11 +259,13 @@ void main_setup() { // benchmark; required extensions in defines.hpp: BENCHMARK,
 	}); // ####################################################################### run simulation, export images and data ##########################################################################
 	lbm.graphics.visualization_modes = VIS_FLAG_LATTICE|VIS_STREAMLINES;
 	lbm.run();
-} /**/
+}
+#endif // SETUP_LID_DRIVEN_CAVITY
 
 
 
-/*void main_setup() { // 2D Karman vortex street; required extensions in defines.hpp: D2Q9, FP16S, EQUILIBRIUM_BOUNDARIES, INTERACTIVE_GRAPHICS
+#ifdef SETUP_2D_KARMAN_VORTEX_STREET
+void main_setup() { // 2D Karman vortex street; required extensions in defines.hpp: D2Q9, FP16S, EQUILIBRIUM_BOUNDARIES, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	const uint R = 16u;
 	const float Re = 250.0f;
@@ -265,11 +280,13 @@ void main_setup() { // benchmark; required extensions in defines.hpp: BENCHMARK,
 	lbm.graphics.visualization_modes = VIS_FLAG_LATTICE|VIS_FIELD;
 	lbm.graphics.slice_mode = 3;
 	lbm.run();
-} /**/
+}
+#endif // SETUP_2D_KARMAN_VORTEX_STREET
 
 
 
-/*void main_setup() { // particle test; required extensions in defines.hpp: VOLUME_FORCE, FORCE_FIELD, MOVING_BOUNDARIES, PARTICLES, INTERACTIVE_GRAPHICS
+#ifdef SETUP_PARTICLE_TEST
+void main_setup() { // particle test; required extensions in defines.hpp: VOLUME_FORCE, FORCE_FIELD, MOVING_BOUNDARIES, PARTICLES, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	const uint L = 128u;
 	const float Re = 1000.0f;
@@ -288,10 +305,12 @@ void main_setup() { // benchmark; required extensions in defines.hpp: BENCHMARK,
 	}); // ####################################################################### run simulation, export images and data ##########################################################################
 	lbm.graphics.visualization_modes = VIS_FLAG_LATTICE|VIS_STREAMLINES|VIS_PARTICLES;
 	lbm.run();
-} /**/
+}
+#endif // SETUP_PARTICLE_TEST
 
 
 
+#ifdef SETUP_DELTA_WING
 void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQUILIBRIUM_BOUNDARIES, SUBGRID, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	const uint L = 128u;
@@ -311,7 +330,7 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 	lbm.graphics.visualization_modes = VIS_FLAG_SURFACE|VIS_Q_CRITERION;
 	lbm.run();
 }
-
+#endif // SETUP_DELTA_WING
 
 
 /*void main_setup() { // NASA Common Research Model; required extensions in defines.hpp: FP16C, EQUILIBRIUM_BOUNDARIES, SUBGRID, INTERACTIVE_GRAPHICS
@@ -951,7 +970,8 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 
 
 
-/*void main_setup() { // hydraulic jump; required extensions in defines.hpp: FP16S, VOLUME_FORCE, EQUILIBRIUM_BOUNDARIES, MOVING_BOUNDARIES, SURFACE, SUBGRID, INTERACTIVE_GRAPHICS
+#ifdef SETUP_HYDRAULIC_JUMP
+void main_setup() { // hydraulic jump; required extensions in defines.hpp: FP16S, VOLUME_FORCE, EQUILIBRIUM_BOUNDARIES, MOVING_BOUNDARIES, SURFACE, SUBGRID, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	const uint memory = 208u; // GPU VRAM in MB
 	const float si_T = 100.0f; // simulated time in [s]
@@ -1007,11 +1027,13 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 	lbm.graphics.visualization_modes = lbm.get_D()==1u ? VIS_PHI_RAYTRACE : VIS_PHI_RASTERIZE;
 	lbm.run();
 	//lbm.run(1000u); lbm.u.read_from_device(); println(lbm.u.x[lbm.index(Nx/2u, Ny/4u, Nz/4u)]); wait(); // test for binary identity
-} /**/
+}
+#endif // SETUP_HYDRAULIC_JUMP
 
 
 
-/*void main_setup() { // dam break; required extensions in defines.hpp: FP16S, VOLUME_FORCE, SURFACE, INTERACTIVE_GRAPHICS
+#ifdef SETUP_DAM_BREAK
+void main_setup() { // dam break; required extensions in defines.hpp: FP16S, VOLUME_FORCE, SURFACE, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	LBM lbm(128u, 256u, 256u, 0.005f, 0.0f, 0.0f, -0.0002f, 0.0001f);
 	// ###################################################################################### define geometry ######################################################################################
@@ -1021,11 +1043,13 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 	}); // ####################################################################### run simulation, export images and data ##########################################################################
 	lbm.graphics.visualization_modes = lbm.get_D()==1u ? VIS_PHI_RAYTRACE : VIS_PHI_RASTERIZE;
 	lbm.run();
-} /**/
+}
+#endif // SETUP_DAM_BREAK
 
 
 
-/*void main_setup() { // liquid metal on a speaker; required extensions in defines.hpp: FP16S, VOLUME_FORCE, MOVING_BOUNDARIES, SURFACE, INTERACTIVE_GRAPHICS
+#ifdef SETUP_LIQUID_METAL_ON_A_SPEAKER
+void main_setup() { // liquid metal on a speaker; required extensions in defines.hpp: FP16S, VOLUME_FORCE, MOVING_BOUNDARIES, SURFACE, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	const uint L = 128u;
 	const float u = 0.09f; // peak velocity of speaker membrane
@@ -1063,11 +1087,13 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 		lbm.u.write_to_device();
 		lbm.run(1u);
 	}
-} /**/
+}
+#endif // SETUP_LIQUID_METAL_ON_A_SPEAKER
 
 
 
-/*void main_setup() { // breaking waves on beach; required extensions in defines.hpp: FP16S, VOLUME_FORCE, EQUILIBRIUM_BOUNDARIES, SURFACE, INTERACTIVE_GRAPHICS
+#ifdef SETUP_BREAKING_WAVES_ON_BEACH
+void main_setup() { // breaking waves on beach; required extensions in defines.hpp: FP16S, VOLUME_FORCE, EQUILIBRIUM_BOUNDARIES, SURFACE, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	const float f = 0.001f; // make smaller
 	const float u = 0.12f; // peak velocity of speaker membrane
@@ -1102,11 +1128,13 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 		lbm.u.write_to_device();
 		lbm.run(100u);
 	}
-} /**/
+}
+#endif // SETUP_BREAKING_WAVES_ON_BEACH
 
 
 
-/*void main_setup() { // river; required extensions in defines.hpp: FP16S, VOLUME_FORCE, SURFACE, INTERACTIVE_GRAPHICS
+#ifdef SETUP_RIVER
+void main_setup() { // river; required extensions in defines.hpp: FP16S, VOLUME_FORCE, SURFACE, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	LBM lbm(128u, 384u, 96u, 0.02f, 0.0f, -0.00007f, -0.0005f, 0.01f);
 	// ###################################################################################### define geometry ######################################################################################
@@ -1123,11 +1151,13 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 	}); // ####################################################################### run simulation, export images and data ##########################################################################
 	lbm.graphics.visualization_modes = lbm.get_D()==1u ? VIS_PHI_RAYTRACE : VIS_PHI_RASTERIZE;
 	lbm.run();
-} /**/
+}
+#endif // SETUP_RIVER
 
 
 
-/*void main_setup() { // raindrop impact; required extensions in defines.hpp: FP16C, VOLUME_FORCE, EQUILIBRIUM_BOUNDARIES, SURFACE, INTERACTIVE_GRAPHICS or GRAPHICS
+#ifdef SETUP_RAINDROP_IMPACT
+void main_setup() { // raindrop impact; required extensions in defines.hpp: FP16C, VOLUME_FORCE, EQUILIBRIUM_BOUNDARIES, SURFACE, INTERACTIVE_GRAPHICS or GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	const uint3 lbm_N = resolution(float3(1.0f, 1.0f, 0.85f), 4000u); // input: simulation box aspect ratio and VRAM occupation in MB, output: grid resolution
 	float lbm_D = (float)lbm_N.x/5.0f;
@@ -1207,11 +1237,13 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 #else // GRAPHICS && !INTERACTIVE_GRAPHICS
 	lbm.run();
 #endif // GRAPHICS && !INTERACTIVE_GRAPHICS
-} /**/
+}
+#endif // SETUP_RAINDROP_IMPACT
 
 
 
-/*void main_setup() { // bursting bubble; required extensions in defines.hpp: FP16C, VOLUME_FORCE, SURFACE, INTERACTIVE_GRAPHICS
+#ifdef SETUP_BURSTING_BUBBLE
+void main_setup() { // bursting bubble; required extensions in defines.hpp: FP16C, VOLUME_FORCE, SURFACE, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	const uint3 lbm_N = resolution(float3(4.0f, 4.0f, 3.0f), 1000u); // input: simulation box aspect ratio and VRAM occupation in MB, output: grid resolution
 	const float lbm_d = 0.25f*(float)lbm_N.x; // bubble diameter in LBM units
@@ -1247,11 +1279,13 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 	}); // ####################################################################### run simulation, export images and data ##########################################################################
 	lbm.graphics.visualization_modes = lbm.get_D()==1u ? VIS_PHI_RAYTRACE : VIS_PHI_RASTERIZE;
 	lbm.run();
-} /**/
+}
+#endif // SETUP_BURSTING_BUBBLE
 
 
 
-/*void main_setup() { // cube with changing gravity; required extensions in defines.hpp: FP16S, VOLUME_FORCE, SURFACE, INTERACTIVE_GRAPHICS
+#ifdef SETUP_CUBE_WITH_CHANGING_GRAVITY
+void main_setup() { // cube with changing gravity; required extensions in defines.hpp: FP16S, VOLUME_FORCE, SURFACE, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	LBM lbm(96u, 96u, 96u, 0.02f, 0.0f, 0.0f, -0.001f, 0.001f);
 	// ###################################################################################### define geometry ######################################################################################
@@ -1273,11 +1307,13 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 		lbm.set_f(0.0f, 0.0f, 0.0f);
 		lbm.run(3000u);
 	}
-} /**/
+}
+#endif // SETUP_CUBE_WITH_CHANGING_GRAVITY
 
 
 
-/*void main_setup() { // periodic faucet mass conservation test; required extensions in defines.hpp: FP16S, VOLUME_FORCE, SURFACE, INTERACTIVE_GRAPHICS
+#ifdef SETUP_PERIODIC_FAUCET_MASS_CONSERVATION_TEST
+void main_setup() { // periodic faucet mass conservation test; required extensions in defines.hpp: FP16S, VOLUME_FORCE, SURFACE, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	LBM lbm(96u, 192u, 128u, 0.02f, 0.0f, 0.0f, -0.00025f);
 	// ###################################################################################### define geometry ######################################################################################
@@ -1290,11 +1326,13 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 	}); // ####################################################################### run simulation, export images and data ##########################################################################
 	lbm.graphics.visualization_modes = VIS_FLAG_LATTICE|VIS_PHI_RASTERIZE;
 	lbm.run();
-} /**/
+}
+#endif // SETUP_PERIODIC_FAUCET_MASS_CONSERVATION_TEST
 
 
 
-/*void main_setup() { // two colliding droplets in force field; required extensions in defines.hpp: FP16S, VOLUME_FORCE, FORCE_FIELD, SURFACE, INTERACTIVE_GRAPHICS
+#ifdef SETUP_TWO_COLLIDING_DROPLETS_IN_FORCE_FIELD
+void main_setup() { // two colliding droplets in force field; required extensions in defines.hpp: FP16S, VOLUME_FORCE, FORCE_FIELD, SURFACE, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	LBM lbm(256u, 256u, 128u, 0.014f, 0.0f, 0.0f, 0.0f, 0.0001f);
 	// ###################################################################################### define geometry ######################################################################################
@@ -1314,11 +1352,13 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 	}); // ####################################################################### run simulation, export images and data ##########################################################################
 	lbm.graphics.visualization_modes = lbm.get_D()==1u ? VIS_PHI_RAYTRACE : VIS_PHI_RASTERIZE;
 	lbm.run();
-} /**/
+}
+#endif // SETUP_TWO_COLLIDING_DROPLETS_IN_FORCE_FIELD
 
 
 
-/*void main_setup() { // Rayleigh-Benard convection; required extensions in defines.hpp: FP16S, VOLUME_FORCE, TEMPERATURE, INTERACTIVE_GRAPHICS
+#ifdef SETUP_RAYLEIGH_BENARD_CONVECTION
+void main_setup() { // Rayleigh-Benard convection; required extensions in defines.hpp: FP16S, VOLUME_FORCE, TEMPERATURE, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	LBM lbm(256u, 256u, 64u, 1u, 1u, 1u, 0.02f, 0.0f, 0.0f, -0.0005f, 0.0f, 1.0f, 1.0f);
 	// ###################################################################################### define geometry ######################################################################################
@@ -1341,11 +1381,13 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 	}); // ####################################################################### run simulation, export images and data ##########################################################################
 	lbm.graphics.visualization_modes = VIS_FLAG_LATTICE|VIS_STREAMLINES;
 	lbm.run();
-} /**/
+}
+#endif // SETUP_RAYLEIGH_BENARD_CONVECTION
 
 
 
-/*void main_setup() { // thermal convection; required extensions in defines.hpp: FP16S, VOLUME_FORCE, TEMPERATURE, INTERACTIVE_GRAPHICS
+#ifdef SETUP_THERMAL_CONVECTION
+void main_setup() { // thermal convection; required extensions in defines.hpp: FP16S, VOLUME_FORCE, TEMPERATURE, INTERACTIVE_GRAPHICS
 	// ################################################################## define simulation box size, viscosity and volume force ###################################################################
 	LBM lbm(32u, 196u, 60u, 1u, 1u, 1u, 0.02f, 0.0f, 0.0f, -0.0005f, 0.0f, 1.0f, 1.0f);
 	// ###################################################################################### define geometry ######################################################################################
@@ -1363,4 +1405,5 @@ void main_setup() { // delta wing; required extensions in defines.hpp: FP16S, EQ
 	lbm.graphics.visualization_modes = VIS_FLAG_LATTICE|VIS_STREAMLINES;
 	lbm.run();
 	//lbm.run(1000u); lbm.u.read_from_device(); println(lbm.u.x[lbm.index(Nx/2u, Ny/2u, Nz/2u)]); wait(); // test for binary identity
-} /**/
+}
+#endif // SETUP_THERMAL_CONVECTION
