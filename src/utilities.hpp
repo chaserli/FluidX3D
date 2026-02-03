@@ -12,7 +12,9 @@
 #pragma warning(disable:26451)
 #pragma warning(disable:6386)
 #pragma warning(disable:6001)
+#include <bit>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 #include <string>
 #ifdef UTILITIES_REGEX
@@ -106,16 +108,20 @@ inline void sleep(const double t) {
 }
 
 inline float as_float(const uint x) {
-	return *(float*)&x;
+	static_assert(sizeof(float)==sizeof(uint));
+	return std::bit_cast<float>(x);
 }
 inline uint as_uint(const float x) {
-	return *(uint*)&x;
+	static_assert(sizeof(float)==sizeof(uint));
+	return std::bit_cast<uint>(x);
 }
 inline double as_double(const ulong x) {
-	return *(double*)&x;
+	static_assert(sizeof(double)==sizeof(ulong));
+	return std::bit_cast<double>(x);
 }
 inline ulong as_ulong(const double x) {
-	return *(ulong*)&x;
+	static_assert(sizeof(double)==sizeof(ulong));
+	return std::bit_cast<ulong>(x);
 }
 
 inline float half_to_float(const ushort x) { // IEEE-754 16-bit floating-point format (without infinity): 1-5-10, exp-15, +-131008.0, +-6.1035156E-5, +-5.9604645E-8, 3.311 digits
@@ -2728,7 +2734,8 @@ inline string to_string_hex(ulong x) {
 	return "0x"+r;
 }
 inline string to_string_hex(slong x) {
-	return to_string_hex(*(ulong*)&x);
+	static_assert(sizeof(slong)==sizeof(ulong));
+	return to_string_hex(std::bit_cast<ulong>(x));
 }
 inline string to_string_hex(uint x) {
 	string r = "";
@@ -2740,7 +2747,8 @@ inline string to_string_hex(uint x) {
 	return "0x"+r;
 }
 inline string to_string_hex(int x) {
-	return to_string_hex(*(uint*)&x);
+	static_assert(sizeof(int)==sizeof(uint));
+	return to_string_hex(std::bit_cast<uint>(x));
 }
 inline string to_string(float x) { // convert float to string with full precision (<string> to_string() prints only 6 decimals)
 	string s = "";
@@ -4040,7 +4048,8 @@ inline bool is_number(const string& s) {
 	return equals_regex(s, "\\d+(u|l|ul|ll|ull)?")||equals_regex(s, "0x(\\d|[a-fA-F])+(u|l|ul|ll|ull)?")||equals_regex(s, "0b[01]+(u|l|ul|ll|ull)?")||equals_regex(s, "(((\\d+\\.?\\d*|\\.\\d+)([eE][+-]?\\d+[fF]?)?)|(\\d+\\.\\d*|\\.\\d+)[fF]?)");
 }
 inline void print_message(const string& message, const string& keyword="", const int keyword_color=-1, const int colons=true) { // print formatted message
-	const uint k=length(keyword)+2u, w=CONSOLE_WIDTH-4u-k;
+	const uint k=length(keyword)+2u;
+	const uint w=(k>=CONSOLE_WIDTH-4u) ? 1u : (CONSOLE_WIDTH-4u-k);
 	string p=colons?": ":"  ", f="";
 	for(uint j=0u; j<k; j++) f += " ";
 	vector<string> v = split_regex(message);
@@ -4052,8 +4061,9 @@ inline void print_message(const string& message, const string& keyword="", const
 		if(l<=w+1u) { // word fits -> append word and space
 			p += word+" ";
 		} else if(wordlength>w) { // word overflows -> split word into next line
-			p += substring(word, 0, w-(l-wordlength-1u))+" |\n| "+f;
-			v[i] = substring(v[i], w-(l-wordlength-1u)); i--; // reuse same vector element for overflowing part, decrement i to start next line with this overflowing part
+			const uint split = (w>0u) ? w : 1u;
+			p += substring(word, 0, split)+" |\n| "+f;
+			v[i] = substring(v[i], split); i--; // reuse same vector element for overflowing part, decrement i to start next line with this overflowing part
 			l = 0u; // reset line length
 		} else { // word does not fit -> fill remaining line with spaces
 			l = l-length(v.at(i--))-1u; // remove word from line, decrement i to start next line with this word

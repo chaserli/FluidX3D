@@ -560,7 +560,7 @@ INT WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ PSTR, _In_
 	return 0;
 }
 
-#elif defined(__linux__)||defined(__APPLE__)
+#elif defined(__linux__)
 
 #include "X11/include/X11/Xlib.h" // sources: libx11-dev, x11proto-dev, libxrandr-dev, libxrender-dev
 #define register // to avoid compiler warning in XKBlib.h
@@ -746,7 +746,9 @@ int main(int argc, char* argv[]) {
 	return 0;
 }
 
-#endif // Linux
+#elif defined(__APPLE__)
+// macOS interactive graphics are implemented in graphics_macos.mm
+#endif // __linux__ / __APPLE__
 #endif // INTERACTIVE_GRAPHICS
 
 #ifdef INTERACTIVE_GRAPHICS_ASCII

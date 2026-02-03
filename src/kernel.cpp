@@ -3028,3 +3028,7 @@ string opencl_c_container() { return R( // ########################## begin of O
 
 
 );} // ############################################################### end of OpenCL C code #####################################################################
+
+string get_opencl_c_code_string() {
+	return get_opencl_c_code();
+}

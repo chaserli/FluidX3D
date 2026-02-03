@@ -139,8 +139,8 @@
   ```
 - Compiling requires [`g++`](https://gcc.gnu.org/) with `C++17`, which is supported since version `8` (check with `g++ --version`). If you have [`make`](https://www.gnu.org/software/make/) installed (check with `make --version`), compiling will will be faster using multiple CPU cores; otherwise compiling falls back to using a single CPU core.
 - To select a specific GPU, enter `./make.sh 0` to compile+run, or `bin/FluidX3D 0` to run on device `0`. You can also select multiple GPUs with `bin/FluidX3D 0 1 3 6` if the setup is [configured as multi-GPU](#the-lbm-class).
-- Operating system (Linux/macOS/Android) and X11 support (required for [`INTERACTIVE_GRAPHICS`](src/defines.hpp)) are detected automatically. In case problems arise, you can still manually select [`target=...`](make.sh#L13) in [`make.sh`](make.sh#L13).
-- On macOS and Android, [`INTERACTIVE_GRAPHICS`](src/defines.hpp) mode is not supported, as no X11 is available. You can still use [`INTERACTIVE_GRAPHICS_ASCII`](src/defines.hpp) though, or [render video](#video-rendering) to the hard drive with regular [`GRAPHICS`](src/defines.hpp) mode.
+- Operating system (Linux/macOS/Android) and X11 support (required for Linux [`INTERACTIVE_GRAPHICS`](src/defines.hpp)) are detected automatically. In case problems arise, you can still manually select [`target=...`](make.sh#L13) in [`make.sh`](make.sh#L13).
+- On macOS, [`INTERACTIVE_GRAPHICS`](src/defines.hpp) is supported via a native windowing backend. Android still does not support [`INTERACTIVE_GRAPHICS`](src/defines.hpp); use [`INTERACTIVE_GRAPHICS_ASCII`](src/defines.hpp) or [render video](#video-rendering) with regular [`GRAPHICS`](src/defines.hpp).
 
 <br>
 

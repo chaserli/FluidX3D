@@ -3,3 +3,4 @@ temp/
 stl/
 .vs/
 FluidX3D.vcxproj.user
+.DS_Store

@@ -1,7 +1,10 @@
 #pragma once
 
 #include "defines.hpp"
-#include "opencl.hpp"
+#if !defined(__APPLE__)
+#error "This build is macOS-only and requires Metal."
+#endif
+#include "metal.hpp"
 #include "graphics.hpp"
 #include "units.hpp"
 #include "info.hpp"

@@ -106,9 +106,9 @@ LBM_Domain::LBM_Domain(const Device_Info& device_info, const uint Nx, const uint
 	string opencl_c_code;
 #ifdef GRAPHICS
 	graphics = Graphics(this);
-	opencl_c_code = device_defines()+graphics.device_defines()+get_opencl_c_code();
+	opencl_c_code = get_metal_msl_code(device_defines(), graphics.device_defines());
 #else // GRAPHICS
-	opencl_c_code = device_defines()+get_opencl_c_code();
+	opencl_c_code = get_metal_msl_code(device_defines(), "");
 #endif // GRAPHICS
 	this->device = Device(device_info, opencl_c_code);
 	print_info("Allocating memory. This may take a few seconds.");
