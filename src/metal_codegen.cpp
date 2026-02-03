@@ -1,5 +1,7 @@
 #include "metal.hpp"
 #include <unordered_set>
+#include <unordered_map>
+#include <mutex>
 #include <string_view>
 #include <array>
 
@@ -606,6 +608,14 @@ string metal_add_thread_qualifiers(const string& src) {
 } // namespace
 
 string get_metal_msl_code(const string& device_defines, const string& graphics_defines) {
+	static std::mutex cache_mutex;
+	static std::unordered_map<string, string, MetalStringHash, MetalStringEq> cache;
+	const string cache_key = device_defines + "\n" + graphics_defines;
+	{
+		std::lock_guard<std::mutex> lock(cache_mutex);
+		auto it = cache.find(cache_key);
+		if(it != cache.end()) return it->second;
+	}
 	string code = get_opencl_c_code_string();
 	code = metal_reflow_opencl_source(code);
 	code = metal_normalize_directives(code);
@@ -660,5 +670,9 @@ string get_metal_msl_code(const string& device_defines, const string& graphics_d
 	)";
 	const string full = compat+"\n"+device_defines+"\n"+graphics_defines+"\n"+code;
 	write_file("bin/metal.msl", full);
+	{
+		std::lock_guard<std::mutex> lock(cache_mutex);
+		cache.emplace(cache_key, full);
+	}
 	return full;
 }

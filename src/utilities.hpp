@@ -9,9 +9,6 @@
 #define CONSOLE_WIDTH 79
 //#define UTILITIES_NO_CPP17
 
-#pragma warning(disable:26451)
-#pragma warning(disable:6386)
-#pragma warning(disable:6001)
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -29,11 +26,11 @@
 using std::string;
 using std::vector;
 using std::thread;
-typedef unsigned char uchar;
-typedef unsigned short ushort;
-typedef unsigned int uint;
-typedef int64_t slong;
-typedef uint64_t ulong;
+using uchar = unsigned char;
+using ushort = unsigned short;
+using uint = unsigned int;
+using slong = int64_t;
+using ulong = uint64_t;
 #define pif 3.1415927f
 #define pi 3.141592653589793
 #define min_char ((char)-128)
@@ -4246,7 +4243,6 @@ template<typename T, typename U> inline void write_file(const string& filename, 
 	for(uint i=0u; i<n; i++) s += to_string(x[i])+"\t"+to_string(y[i])+"\n";
 	write_file(filename, s);
 }
-#pragma warning(disable:6385)
 inline Image* read_bmp(const string& filename, Image* image=nullptr) {
 	std::ifstream file(create_file_extension(filename, ".bmp"), std::ios::in|std::ios::binary);
 	if(file.fail()) print_error("File \""+filename+"\" does not exist!");
