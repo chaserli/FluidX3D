@@ -1228,24 +1228,35 @@ inline float3& float3::operator=(const float3x3& m) { // extract diagonal of mat
 
 inline string to_string(float x); // forward-declare to_string(float x) for stringify()
 struct floatNxN; // forward-declare floatNxN
-struct floatN {
-	uint N; // vector size is N
-	float* V; // vector data
-	floatN(const uint N, const float x=0.0f) { // create vector filled with zeros
-		this->N = N;
-		this->V = new float[N];
-		for(uint i=0u; i<N; i++) this->V[i] = x;
-	}
+	struct floatN {
+		uint N=0u; // vector size is N
+		float* V=nullptr; // vector data
+		floatN(const uint N, const float x=0.0f) { // create vector filled with zeros
+			this->N = N;
+			this->V = new float[N];
+			for(uint i=0u; i<N; i++) this->V[i] = x;
+		}
 	floatN(const uint N, const float* V) {
 		this->N = N;
 		this->V = new float[N];
 		for(uint i=0u; i<N; i++) this->V[i] = V[i];
 	}
 	floatN(const uint N, const floatNxN& m); // forward-declare floatNxN constructor
-	floatN() = default;
-	~floatN() {
-		delete[] V;
-	}
+		floatN(const floatN& v) {
+			this->N = v.N;
+			this->V = v.N ? new float[v.N] : nullptr;
+			for(uint i=0u; i<v.N; i++) this->V[i] = v.V[i];
+		}
+		floatN(floatN&& v) noexcept {
+			this->N = v.N;
+			this->V = v.V;
+			v.N = 0u;
+			v.V = nullptr;
+		}
+		floatN() = default;
+		~floatN() {
+			delete[] V;
+		}
 	inline float& operator[](const uint i) {
 		return V[i];
 	}
@@ -1264,13 +1275,23 @@ struct floatN {
 	inline const float* const operator()() const {
 		return V;
 	}
-	inline floatN& operator=(const floatN& v) {
-		delete[] this->V;
-		this->N = v.N;
-		this->V = new float[v.N];
-		for(uint i=0u; i<v.N; i++) this->V[i] = v.V[i];
-		return *this;
-	}
+		inline floatN& operator=(const floatN& v) {
+			if(this==&v) return *this;
+			delete[] this->V;
+			this->N = v.N;
+			this->V = v.N ? new float[v.N] : nullptr;
+			for(uint i=0u; i<v.N; i++) this->V[i] = v.V[i];
+			return *this;
+		}
+		inline floatN& operator=(floatN&& v) noexcept {
+			if(this==&v) return *this;
+			delete[] this->V;
+			this->N = v.N;
+			this->V = v.V;
+			v.N = 0u;
+			v.V = nullptr;
+			return *this;
+		}
 	inline floatN& operator=(const uint N) {
 		delete[] this->V;
 		this->N = N;
@@ -1366,8 +1387,8 @@ inline floatN operator/(const floatN& v, const float x) { // elementwise divisio
 }
 
 struct floatNxN {
-	uint N; // matrix size is NxN
-	float* M; // matrix data
+	uint N=0u; // matrix size is NxN
+	float* M=nullptr; // matrix data
 	floatNxN(const uint N, const float x=0.0f) { // create matrix filled with zeros
 		this->N = N;
 		this->M = new float[N*N];
@@ -1383,6 +1404,17 @@ struct floatNxN {
 		this->M = new float[v.N*v.N];
 		for(uint i=0u; i<v.N*v.N; i++) this->M[i] = 0.0f;
 		for(uint i=0u; i<v.N; i++) this->M[v.N*i+i] = v.V[i];
+	}
+	floatNxN(const floatNxN& m) {
+		this->N = m.N;
+		this->M = m.N ? new float[m.N*m.N] : nullptr;
+		for(uint i=0u; i<m.N*m.N; i++) this->M[i] = m.M[i];
+	}
+	floatNxN(floatNxN&& m) noexcept {
+		this->N = m.N;
+		this->M = m.M;
+		m.N = 0u;
+		m.M = nullptr;
 	}
 	floatNxN() = default;
 	~floatNxN() {
@@ -1413,10 +1445,20 @@ struct floatNxN {
 		return M;
 	}
 	inline floatNxN& operator=(const floatNxN& m) {
+		if(this==&m) return *this;
 		delete[] this->M;
 		this->N = m.N;
-		this->M = new float[m.N*m.N];
+		this->M = m.N ? new float[m.N*m.N] : nullptr;
 		for(uint i=0u; i<m.N*m.N; i++) this->M[i] = m.M[i];
+		return *this;
+	}
+	inline floatNxN& operator=(floatNxN&& m) noexcept {
+		if(this==&m) return *this;
+		delete[] this->M;
+		this->N = m.N;
+		this->M = m.M;
+		m.N = 0u;
+		m.M = nullptr;
 		return *this;
 	}
 	inline floatNxN& operator=(const floatN& v) { // create diagonal matrix from vector
@@ -1971,8 +2013,8 @@ inline double3& double3::operator=(const double3x3& m) { // extract diagonal of 
 inline string to_string(double x); // forward-declare to_string(double x) for stringify()
 struct doubleNxN; // forward-declare doubleNxN
 struct doubleN {
-	uint N; // vector size is N
-	double* V; // vector data
+	uint N=0u; // vector size is N
+	double* V=nullptr; // vector data
 	doubleN(const uint N, const double x=0.0) { // create vector filled with zeros
 		this->N = N;
 		this->V = new double[N];
@@ -1984,6 +2026,17 @@ struct doubleN {
 		for(uint i=0u; i<N; i++) this->V[i] = V[i];
 	}
 	doubleN(const uint N, const doubleNxN& m); // forward-declare doubleNxN constructor
+	doubleN(const doubleN& v) {
+		this->N = v.N;
+		this->V = v.N ? new double[v.N] : nullptr;
+		for(uint i=0u; i<v.N; i++) this->V[i] = v.V[i];
+	}
+	doubleN(doubleN&& v) noexcept {
+		this->N = v.N;
+		this->V = v.V;
+		v.N = 0u;
+		v.V = nullptr;
+	}
 	doubleN() = default;
 	~doubleN() {
 		delete[] V;
@@ -2007,10 +2060,20 @@ struct doubleN {
 		return V;
 	}
 	inline doubleN& operator=(const doubleN& v) {
+		if(this==&v) return *this;
 		delete[] this->V;
 		this->N = v.N;
-		this->V = new double[v.N];
+		this->V = v.N ? new double[v.N] : nullptr;
 		for(uint i=0u; i<v.N; i++) this->V[i] = v.V[i];
+		return *this;
+	}
+	inline doubleN& operator=(doubleN&& v) noexcept {
+		if(this==&v) return *this;
+		delete[] this->V;
+		this->N = v.N;
+		this->V = v.V;
+		v.N = 0u;
+		v.V = nullptr;
 		return *this;
 	}
 	inline doubleN& operator=(const uint N) {
@@ -2108,8 +2171,8 @@ inline doubleN operator/(const doubleN& v, const double x) { // elementwise divi
 }
 
 struct doubleNxN {
-	uint N; // matrix size is NxN
-	double* M; // matrix data
+	uint N=0u; // matrix size is NxN
+	double* M=nullptr; // matrix data
 	doubleNxN(const uint N, const double x=0.0) { // create matrix filled with zeros
 		this->N = N;
 		this->M = new double[N*N];
@@ -2125,6 +2188,17 @@ struct doubleNxN {
 		this->M = new double[v.N*v.N];
 		for(uint i=0u; i<v.N*v.N; i++) this->M[i] = 0.0;
 		for(uint i=0u; i<v.N; i++) this->M[v.N*i+i] = v.V[i];
+	}
+	doubleNxN(const doubleNxN& m) {
+		this->N = m.N;
+		this->M = m.N ? new double[m.N*m.N] : nullptr;
+		for(uint i=0u; i<m.N*m.N; i++) this->M[i] = m.M[i];
+	}
+	doubleNxN(doubleNxN&& m) noexcept {
+		this->N = m.N;
+		this->M = m.M;
+		m.N = 0u;
+		m.M = nullptr;
 	}
 	doubleNxN() = default;
 	~doubleNxN() {
@@ -2155,10 +2229,20 @@ struct doubleNxN {
 		return M;
 	}
 	inline doubleNxN& operator=(const doubleNxN& m) {
+		if(this==&m) return *this;
 		delete[] this->M;
 		this->N = m.N;
-		this->M = new double[m.N*m.N];
+		this->M = m.N ? new double[m.N*m.N] : nullptr;
 		for(uint i=0u; i<m.N*m.N; i++) this->M[i] = m.M[i];
+		return *this;
+	}
+	inline doubleNxN& operator=(doubleNxN&& m) noexcept {
+		if(this==&m) return *this;
+		delete[] this->M;
+		this->N = m.N;
+		this->M = m.M;
+		m.N = 0u;
+		m.M = nullptr;
 		return *this;
 	}
 	inline doubleNxN& operator=(const doubleN& v) { // create diagonal matrix from vector
@@ -2918,16 +3002,64 @@ template<typename T> inline void println(const T& x) {
 	println(to_string(x));
 }
 
-class Image {
-private:
-	uint w=0u, h=0u; // width, height
-	int* d = nullptr; // pixel data
-	bool external_pointer = false;
-public:
-	inline Image(const uint width, const uint height) {
-		this->w = width;
-		this->h = height;
-		this->d = new int[width*height];
+	class Image {
+	private:
+		uint w=0u, h=0u; // width, height
+		int* d = nullptr; // pixel data
+		bool external_pointer = false;
+	public:
+		Image(const Image& other) {
+			this->w = other.w;
+			this->h = other.h;
+			if(other.d && other.w && other.h) {
+				this->d = new int[other.w*other.h];
+				memcpy(this->d, other.d, (size_t)other.w*(size_t)other.h*sizeof(int));
+			} else {
+				this->d = nullptr;
+			}
+			this->external_pointer = false;
+		}
+		Image(Image&& other) noexcept {
+			this->w = other.w;
+			this->h = other.h;
+			this->d = other.d;
+			this->external_pointer = other.external_pointer;
+			other.w = 0u;
+			other.h = 0u;
+			other.d = nullptr;
+			other.external_pointer = false;
+		}
+		Image& operator=(const Image& other) {
+			if(this==&other) return *this;
+			if(!external_pointer) delete[] d;
+			this->w = other.w;
+			this->h = other.h;
+			if(other.d && other.w && other.h) {
+				this->d = new int[other.w*other.h];
+				memcpy(this->d, other.d, (size_t)other.w*(size_t)other.h*sizeof(int));
+			} else {
+				this->d = nullptr;
+			}
+			this->external_pointer = false;
+			return *this;
+		}
+		Image& operator=(Image&& other) noexcept {
+			if(this==&other) return *this;
+			if(!external_pointer) delete[] d;
+			this->w = other.w;
+			this->h = other.h;
+			this->d = other.d;
+			this->external_pointer = other.external_pointer;
+			other.w = 0u;
+			other.h = 0u;
+			other.d = nullptr;
+			other.external_pointer = false;
+			return *this;
+		}
+		inline Image(const uint width, const uint height) {
+			this->w = width;
+			this->h = height;
+			this->d = new int[width*height];
 	}
 	inline Image(const uint width, const uint height, int* const data) {
 		this->w = width;
@@ -4443,16 +4575,84 @@ inline void write_png(const string& filename, const Image* image) {
 }
 #endif // UTILITIES_PNG
 
-struct Mesh { // triangle mesh
-	uint triangle_number = 0u;
-	float3 center, pmin, pmax;
-	float3* p0;
-	float3* p1;
-	float3* p2;
-	inline Mesh(const uint triangle_number, const float3& center) {
-		this->triangle_number = triangle_number;
-		this->center = this->pmin = this->pmax = center;
-		this->p0 = new float3[triangle_number];
+	struct Mesh { // triangle mesh
+		uint triangle_number = 0u;
+		float3 center, pmin, pmax;
+		float3* p0;
+		float3* p1;
+		float3* p2;
+		Mesh(const Mesh& other) {
+			triangle_number = other.triangle_number;
+			center = other.center;
+			pmin = other.pmin;
+			pmax = other.pmax;
+			if(triangle_number>0u) {
+				p0 = new float3[triangle_number];
+				p1 = new float3[triangle_number];
+				p2 = new float3[triangle_number];
+				for(uint i=0u; i<triangle_number; i++) {
+					p0[i] = other.p0[i];
+					p1[i] = other.p1[i];
+					p2[i] = other.p2[i];
+				}
+			} else {
+				p0 = p1 = p2 = nullptr;
+			}
+		}
+		Mesh(Mesh&& other) noexcept {
+			triangle_number = other.triangle_number;
+			center = other.center;
+			pmin = other.pmin;
+			pmax = other.pmax;
+			p0 = other.p0;
+			p1 = other.p1;
+			p2 = other.p2;
+			other.triangle_number = 0u;
+			other.p0 = other.p1 = other.p2 = nullptr;
+		}
+		Mesh& operator=(const Mesh& other) {
+			if(this==&other) return *this;
+			delete[] p0;
+			delete[] p1;
+			delete[] p2;
+			triangle_number = other.triangle_number;
+			center = other.center;
+			pmin = other.pmin;
+			pmax = other.pmax;
+			if(triangle_number>0u) {
+				p0 = new float3[triangle_number];
+				p1 = new float3[triangle_number];
+				p2 = new float3[triangle_number];
+				for(uint i=0u; i<triangle_number; i++) {
+					p0[i] = other.p0[i];
+					p1[i] = other.p1[i];
+					p2[i] = other.p2[i];
+				}
+			} else {
+				p0 = p1 = p2 = nullptr;
+			}
+			return *this;
+		}
+		Mesh& operator=(Mesh&& other) noexcept {
+			if(this==&other) return *this;
+			delete[] p0;
+			delete[] p1;
+			delete[] p2;
+			triangle_number = other.triangle_number;
+			center = other.center;
+			pmin = other.pmin;
+			pmax = other.pmax;
+			p0 = other.p0;
+			p1 = other.p1;
+			p2 = other.p2;
+			other.triangle_number = 0u;
+			other.p0 = other.p1 = other.p2 = nullptr;
+			return *this;
+		}
+		inline Mesh(const uint triangle_number, const float3& center) {
+			this->triangle_number = triangle_number;
+			this->center = this->pmin = this->pmax = center;
+			this->p0 = new float3[triangle_number];
 		this->p1 = new float3[triangle_number];
 		this->p2 = new float3[triangle_number];
 	}

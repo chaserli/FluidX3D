@@ -336,7 +336,8 @@ void draw_line_label(const int x0, const int y0, const int x1, const int y1, con
 	}
 }
 void draw_bitmap(int* bitmap) {
-	std::swap(camera.bitmap, bitmap); // swap pointers instead of memory copy
+	if(!bitmap||!camera.bitmap) return;
+	memcpy(camera.bitmap, bitmap, (size_t)camera.width*(size_t)camera.height*sizeof(int));
 }
 
 void draw_pixel(const float3& p, const int color) {

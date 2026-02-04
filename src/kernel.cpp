@@ -1179,7 +1179,7 @@ string opencl_c_container() { return R( // ########################## begin of O
 	const float sqn1=sq(n1), n26=6.0f*n2, v1=sqn1/n26; // after case (5) check n2>0 is true
 	if(v1<=n3V && n3V<v1+0.5f*(n2-n1)) return 0.5f*(n1+sqrt(sqn1+8.0f*n2*(n3V-v1))); // case (2)
 	const float V6 = n1*n26*n3V;
-	if(n3V<v1) return cbrt(V6); // case (1)
+	if(n3V<v1) return pow(V6, 0.33333334f); // case (1)
 	const float v3 = n3<n12 ? (sq(n3)*(3.0f*n12-n3)+sqn1*(n1-3.0f*n3)+sq(n2)*(n2-3.0f*n3))/(n1*n26) : 0.5f*n12; // after case (2) check n1>0 is true
 	const float sqn12=sqn1+sq(n2), V6cbn12=V6-cb(n1)-cb(n2);
 	const bool case34 = n3V<v3; // true: case (3), false: case (4)

@@ -219,14 +219,18 @@ int main(int argc, char* argv[]) {
 						dequeue:YES];
 					if(event) [NSApp sendEvent:event];
 				} while(event);
-				[NSApp updateWindows];
+					[NSApp updateWindows];
 
-				camera.rendring_frame.lock();
-				camera.update_state(fmax(1.0/(double)camera.fps_limit, frametime));
-				main_graphics();
-				mac_update_frame(frametime);
-				camera.rendring_frame.unlock();
-			}
+					camera.rendring_frame.lock();
+					if(!running || !camera.allow_rendering) {
+						camera.rendring_frame.unlock();
+						continue;
+					}
+					camera.update_state(fmax(1.0/(double)camera.fps_limit, frametime));
+					main_graphics();
+					mac_update_frame(frametime);
+					camera.rendring_frame.unlock();
+				}
 			frametime = clock.stop();
 			sleep(1.0/(double)camera.fps_limit-frametime);
 			clock.start();

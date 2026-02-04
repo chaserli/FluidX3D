@@ -244,6 +244,7 @@ public:
 		uint d = 1u; // buffer dimensions
 		LBM* lbm = nullptr;
 		Memory<T>** buffers = nullptr; // host buffers
+		bool owns_buffers = false;
 		string name = "";
 
 		uint Nx=1u, Ny=1u, Nz=1u, Dx=1u, Dy=1u, Dz=1u, D=1u; // auxiliary variables: (local) lattice dimensions, lattice domains, number of domains
@@ -357,25 +358,49 @@ public:
 		};
 		Pointer x, y, z; // host buffer auxiliary pointers for multi-dimensional array access (array of structures)
 
-		inline Memory_Container(LBM* lbm, Memory<T>** buffers, const string& name) {
+		inline Memory_Container(LBM* lbm, Memory<T>** buffers, const string& name, const bool owns_buffers=false) {
 			this->N = lbm->get_N();
 			this->d = buffers[0]->dimensions();
 			if(this->N*(ulong)this->d==0ull) print_error("Memory size must be larger than 0.");
 			this->lbm = lbm;
 			this->buffers = buffers;
 			this->name = name;
+			this->owns_buffers = owns_buffers;
 			initialize_auxiliary_variables();
 			initialize_auxiliary_pointers();
 		}
-		inline Memory_Container() {} // default constructor
+		inline Memory_Container() = default; // default constructor
+		Memory_Container(const Memory_Container&)=delete;
+		Memory_Container& operator=(const Memory_Container&)=delete;
+		inline Memory_Container(Memory_Container&& memory) noexcept {
+			*this = static_cast<Memory_Container&&>(memory);
+		}
+		inline ~Memory_Container() {
+			if(owns_buffers) delete[] buffers;
+		}
 		inline Memory_Container& operator=(Memory_Container&& memory) noexcept { // move assignment
+			if(this==&memory) return *this;
+			if(owns_buffers) delete[] buffers;
 			this->N = memory.N;
 			this->d = memory.d;
 			this->lbm = memory.lbm;
 			this->buffers = memory.buffers;
 			this->name = memory.name;
-			initialize_auxiliary_variables();
-			initialize_auxiliary_pointers();
+			this->owns_buffers = memory.owns_buffers;
+			if(this->lbm) {
+				initialize_auxiliary_variables();
+				initialize_auxiliary_pointers();
+			} else {
+				x = Pointer();
+				y = Pointer();
+				z = Pointer();
+			}
+			memory.N = 0ull;
+			memory.d = 1u;
+			memory.lbm = nullptr;
+			memory.buffers = nullptr;
+			memory.owns_buffers = false;
+			memory.name.clear();
 			return *this;
 		}
 		inline void reset(const T value=(T)0) {

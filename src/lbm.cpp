@@ -702,32 +702,32 @@ LBM::LBM(const uint Nx, const uint Ny, const uint Nz, const uint Dx, const uint 
 	{
 		Memory<float>** buffers_rho = new Memory<float>*[D];
 		for(uint d=0u; d<D; d++) buffers_rho[d] = &(lbm_domain[d]->rho);
-		rho = Memory_Container(this, buffers_rho, "rho");
+		rho = Memory_Container(this, buffers_rho, "rho", true);
 	} {
 		Memory<float>** buffers_u = new Memory<float>*[D];
 		for(uint d=0u; d<D; d++) buffers_u[d] = &(lbm_domain[d]->u);
-		u = Memory_Container(this, buffers_u, "u");
+		u = Memory_Container(this, buffers_u, "u", true);
 	} {
 		Memory<uchar>** buffers_flags = new Memory<uchar>*[D];
 		for(uint d=0u; d<D; d++) buffers_flags[d] = &(lbm_domain[d]->flags);
-		flags = Memory_Container(this, buffers_flags, "flags");
+		flags = Memory_Container(this, buffers_flags, "flags", true);
 	} {
 #ifdef FORCE_FIELD
 		Memory<float>** buffers_F = new Memory<float>*[D];
 		for(uint d=0u; d<D; d++) buffers_F[d] = &(lbm_domain[d]->F);
-		F = Memory_Container(this, buffers_F, "F");
+		F = Memory_Container(this, buffers_F, "F", true);
 #endif // FORCE_FIELD
 	} {
 #ifdef SURFACE
 		Memory<float>** buffers_phi = new Memory<float>*[D];
 		for(uint d=0u; d<D; d++) buffers_phi[d] = &(lbm_domain[d]->phi);
-		phi = Memory_Container(this, buffers_phi, "phi");
+		phi = Memory_Container(this, buffers_phi, "phi", true);
 #endif // SURFACE
 	} {
 #ifdef TEMPERATURE
 		Memory<float>** buffers_T = new Memory<float>*[D];
 		for(uint d=0u; d<D; d++) buffers_T[d] = &(lbm_domain[d]->T);
-		T = Memory_Container(this, buffers_T, "T");
+		T = Memory_Container(this, buffers_T, "T", true);
 #endif // TEMPERATURE
 	} {
 #ifdef PARTICLES
@@ -740,7 +740,10 @@ LBM::LBM(const uint Nx, const uint Ny, const uint Nz, const uint Dx, const uint 
 }
 LBM::~LBM() {
 #ifdef GRAPHICS
+	running = false;
 	camera.allow_rendering = false;
+	camera.rendring_frame.lock();
+	camera.rendring_frame.unlock();
 #endif // GRAPHICS
 	info.print_finalize();
 	for(uint d=0u; d<get_D(); d++) delete lbm_domain[d];

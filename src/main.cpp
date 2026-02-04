@@ -139,6 +139,7 @@ void main_label(const double frametime) {
 }
 
 void main_graphics() {
+	if(!info.lbm) return;
 	if(camera.allow_rendering) draw_bitmap(info.lbm->graphics.draw_frame());
 }
 #endif // GRAPHICS
